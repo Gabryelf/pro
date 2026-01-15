@@ -420,4 +420,339 @@ function gameLoop() {
             gameState.projectiles.splice(index, 1);
         } else {
             // Движение
-            projectile.x += dx / distance * 8
+            projectile.x += dx / distance * 8;
+            projectile.y += dy / distance * 8;
+            
+            projectile.element.style.left = `${projectile.x - 5}px`;
+            projectile.element.style.top = `${projectile.y - 5}px`;
+        }
+    });
+    
+    updateUI();
+    requestAnimationFrame(gameLoop);
+}
+
+// Поиск цели для башни
+function findTarget(tower) {
+    let closest = null;
+    let closestDistance = tower.range;
+    
+    gameState.enemies.forEach(enemy => {
+        const dx = enemy.x - tower.x;
+        const dy = enemy.y - tower.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < closestDistance) {
+            closestDistance = distance;
+            closest = enemy;
+        }
+    });
+    
+    return closest;
+}
+
+// Выстрел
+function shoot(tower, target) {
+    const projectile = {
+        id: ++gameState.projectileId,
+        tower: tower,
+        target: target,
+        x: tower.x,
+        y: tower.y,
+        targetX: target.x,
+        targetY: target.y,
+        damage: tower.damage,
+        type: tower.type
+    };
+    
+    const projectileEl = document.createElement('div');
+    projectileEl.className = 'projectile';
+    projectileEl.dataset.type = tower.type;
+    projectileEl.style.cssText = `
+        position: absolute;
+        left: ${tower.x - 5}px;
+        top: ${tower.y - 5}px;
+        width: 10px;
+        height: 10px;
+        background: ${tower.color};
+        border-radius: 50%;
+        box-shadow: 0 0 10px ${tower.color};
+        z-index: 25;
+    `;
+    
+    projectilesContainer.appendChild(projectileEl);
+    projectile.element = projectileEl;
+    
+    gameState.projectiles.push(projectile);
+    
+    // Звук выстрела (опционально)
+    try {
+        document.getElementById('shootSound').currentTime = 0;
+        document.getElementById('shootSound').play();
+    } catch (e) {}
+}
+
+// Попадание снаряда
+function projectileHit(projectile) {
+    const enemy = projectile.target;
+    if (!enemy || !enemy.element) return;
+    
+    enemy.health -= projectile.damage;
+    
+    // Обновление полоски здоровья
+    if (enemy.healthFill) {
+        const percent = (enemy.health / enemy.maxHealth) * 100;
+        enemy.healthFill.style.width = `${percent}%`;
+        enemy.healthFill.style.background = percent > 50 ? '#00ff00' : 
+                                           percent > 25 ? '#ffff00' : '#ff0000';
+    }
+    
+    // Эффект попадания
+    const hitEffect = document.createElement('div');
+    hitEffect.style.cssText = `
+        position: absolute;
+        left: ${enemy.x - 20}px;
+        top: ${enemy.y - 20}px;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: radial-gradient(circle, ${projectile.tower.color}, transparent 70%);
+        opacity: 0.7;
+        z-index: 30;
+        animation: hitEffect 0.5s forwards;
+    `;
+    
+    enemiesContainer.appendChild(hitEffect);
+    setTimeout(() => hitEffect.remove(), 500);
+    
+    // Проверка смерти врага
+    if (enemy.health <= 0) {
+        enemyKilled(enemy);
+        
+        // Цепная молния для грозовой башни
+        if (projectile.type === 'storm' && projectile.tower.chain) {
+            chainLightning(enemy, projectile);
+        }
+    }
+}
+
+// Цепная молния
+function chainLightning(sourceEnemy, projectile) {
+    const chainCount = projectile.tower.chain;
+    let chains = 0;
+    
+    gameState.enemies.forEach(otherEnemy => {
+        if (chains >= chainCount) return;
+        if (otherEnemy === sourceEnemy || otherEnemy.health <= 0) return;
+        
+        const dx = otherEnemy.x - sourceEnemy.x;
+        const dy = otherEnemy.y - sourceEnemy.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < 100) { // Радиус цепной молнии
+            otherEnemy.health -= projectile.damage * 0.5;
+            chains++;
+            
+            // Линия молнии
+            drawLightning(sourceEnemy, otherEnemy);
+            
+            if (otherEnemy.health <= 0) {
+                enemyKilled(otherEnemy);
+            }
+        }
+    });
+}
+
+// Рисование молнии
+function drawLightning(from, to) {
+    const lightning = document.createElement('div');
+    lightning.style.cssText = `
+        position: absolute;
+        left: ${from.x}px;
+        top: ${from.y}px;
+        width: ${Math.sqrt(Math.pow(to.x - from.x, 2) + Math.pow(to.y - from.y, 2))}px;
+        height: 3px;
+        background: linear-gradient(90deg, transparent, #ffff00, #ffaa00, transparent);
+        transform-origin: left center;
+        transform: rotate(${Math.atan2(to.y - from.y, to.x - from.x)}rad);
+        z-index: 35;
+        animation: lightningFlash 0.3s forwards;
+    `;
+    
+    enemiesContainer.appendChild(lightning);
+    setTimeout(() => lightning.remove(), 300);
+}
+
+// Враг убит
+function enemyKilled(enemy) {
+    gameState.energy += enemy.points;
+    gameState.enemiesKilled++;
+    
+    // Удаляем врага
+    if (enemy.element) {
+        enemy.element.remove();
+    }
+    
+    // Удаляем из массива
+    const index = gameState.enemies.indexOf(enemy);
+    if (index > -1) {
+        gameState.enemies.splice(index, 1);
+    }
+    
+    // Звук смерти (опционально)
+    try {
+        document.getElementById('enemyDieSound').currentTime = 0;
+        document.getElementById('enemyDieSound').play();
+    } catch (e) {}
+    
+    addLog(`Тень уничтожена! +${enemy.points} энергии`);
+    
+    // Проверка конца волны
+    if (gameState.enemies.length === 0 && gameState.enemyCount === 0) {
+        endWave();
+    }
+}
+
+// Враг достиг кристалла
+function enemyReachedCrystal(enemy) {
+    gameState.lives--;
+    
+    // Эффект повреждения кристалла
+    const crystal = document.getElementById('crystal');
+    crystal.style.animation = 'none';
+    setTimeout(() => {
+        crystal.style.animation = 'crystalPulse 3s infinite alternate';
+    }, 100);
+    
+    // Удаляем врага
+    if (enemy.element) {
+        enemy.element.remove();
+    }
+    
+    const index = gameState.enemies.indexOf(enemy);
+    if (index > -1) {
+        gameState.enemies.splice(index, 1);
+    }
+    
+    addLog("Кристалл поврежден! -1 жизнь");
+    
+    // Проверка поражения
+    if (gameState.lives <= 0) {
+        gameOver();
+        return;
+    }
+    
+    // Проверка конца волны
+    if (gameState.enemies.length === 0 && gameState.enemyCount === 0) {
+        endWave();
+    }
+}
+
+// Конец волны
+function endWave() {
+    gameState.waveInProgress = false;
+    gameState.wave++;
+    
+    if (gameState.wave > gameState.maxWaves) {
+        victory();
+        return;
+    }
+    
+    addLog(`Волна ${gameState.wave - 1} завершена! Подготовьтесь к следующей.`);
+    updateUI();
+}
+
+// Победа
+function victory() {
+    gameState.gameActive = false;
+    modalTitle.textContent = "ПОБЕДА!";
+    modalMessage.textContent = `Вы защитили кристалл от всех волн! Убито врагов: ${gameState.enemiesKilled}`;
+    restartGameBtn.style.display = 'block';
+    gameModal.style.display = 'flex';
+}
+
+// Поражение
+function gameOver() {
+    gameState.gameActive = false;
+    modalTitle.textContent = "ПОРАЖЕНИЕ";
+    modalMessage.textContent = `Кристалл разрушен! Вы достигли волны ${gameState.wave}`;
+    restartGameBtn.style.display = 'block';
+    gameModal.style.display = 'flex';
+}
+
+// Обновление интерфейса
+function updateUI() {
+    energyEl.textContent = gameState.energy;
+    livesEl.textContent = gameState.lives;
+    waveEl.textContent = `${gameState.wave}/${gameState.maxWaves}`;
+    
+    // Полоска энергии
+    const energyPercent = Math.min(gameState.energy / 200 * 100, 100);
+    energyFill.style.width = `${energyPercent}%`;
+    
+    // Сердечки
+    const hearts = document.querySelectorAll('.fa-heart');
+    hearts.forEach((heart, index) => {
+        if (index < Math.ceil(gameState.lives / 5)) {
+            heart.style.opacity = '1';
+        } else {
+            heart.style.opacity = '0.3';
+        }
+    });
+    
+    // Кнопка начала волны
+    if (gameState.waveInProgress) {
+        startWaveBtn.innerHTML = '<i class="fas fa-pause"></i> Волна в процессе';
+        startWaveBtn.disabled = true;
+    } else {
+        startWaveBtn.innerHTML = '<i class="fas fa-play"></i> Начать волну';
+        startWaveBtn.disabled = false;
+    }
+}
+
+// Добавление сообщения в лог
+function addLog(message) {
+    const p = document.createElement('p');
+    p.textContent = `[${new Date().toLocaleTimeString().slice(0,5)}] ${message}`;
+    gameLog.prepend(p);
+    
+    // Ограничиваем количество сообщений
+    if (gameLog.children.length > 10) {
+        gameLog.removeChild(gameLog.lastChild);
+    }
+}
+
+// Показать модальное окно
+function showModal(title, message) {
+    modalTitle.textContent = title;
+    modalMessage.textContent = message;
+    restartGameBtn.style.display = 'none';
+    gameModal.style.display = 'flex';
+}
+
+// CSS анимации (добавляем динамически)
+const style = document.createElement('style');
+style.textContent = `
+    @keyframes hitEffect {
+        0% { transform: scale(1); opacity: 0.7; }
+        100% { transform: scale(2); opacity: 0; }
+    }
+    
+    @keyframes lightningFlash {
+        0% { opacity: 1; }
+        100% { opacity: 0; }
+    }
+    
+    .tower:hover .tower-range {
+        opacity: 0.5 !important;
+    }
+    
+    .enemy {
+        transition: left 0.05s linear, top 0.05s linear;
+    }
+`;
+document.head.appendChild(style);
+
+// Запуск игры
+initGame();
+gameLoop();
