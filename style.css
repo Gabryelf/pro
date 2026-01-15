@@ -1,0 +1,447 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Exo 2', sans-serif;
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    color: #e0e0ff;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Шапка */
+header {
+    background: rgba(20, 15, 60, 0.8);
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 25px;
+    border: 2px solid #4a3eff;
+    box-shadow: 0 0 30px rgba(74, 62, 255, 0.3);
+}
+
+header h1 {
+    font-family: 'Orbitron', sans-serif;
+    text-align: center;
+    font-size: 2.8rem;
+    margin-bottom: 20px;
+    background: linear-gradient(90deg, #9d4edd, #5a00cc, #3a0ca3);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 0 15px rgba(157, 78, 221, 0.5);
+}
+
+.game-info {
+    display: flex;
+    justify-content: space-around;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.info-item {
+    background: rgba(30, 25, 80, 0.6);
+    padding: 15px 25px;
+    border-radius: 10px;
+    min-width: 200px;
+    text-align: center;
+    border: 1px solid #5a00cc;
+}
+
+.label {
+    display: block;
+    font-size: 1.1rem;
+    color: #9d8eff;
+    margin-bottom: 8px;
+}
+
+.value {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 2.2rem;
+    font-weight: bold;
+    color: #00ffea;
+    text-shadow: 0 0 10px #00ffea;
+}
+
+.energy-bar {
+    width: 100%;
+    height: 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    margin-top: 10px;
+    overflow: hidden;
+}
+
+.energy-fill {
+    height: 100%;
+    width: 100%;
+    background: linear-gradient(90deg, #00ffea, #0088ff);
+    border-radius: 6px;
+    transition: width 0.5s ease;
+}
+
+.hearts {
+    margin-top: 10px;
+    font-size: 1.8rem;
+    color: #ff3366;
+}
+
+/* Игровое поле */
+.game-container {
+    display: flex;
+    gap: 25px;
+    margin-bottom: 25px;
+}
+
+.game-area {
+    flex: 3;
+    position: relative;
+    background: rgba(10, 8, 35, 0.8);
+    border-radius: 15px;
+    height: 700px;
+    border: 3px solid #4a3eff;
+    overflow: hidden;
+    box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.7);
+}
+
+/* Спиральный путь */
+.path {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80%;
+    height: 80%;
+    background: repeating-radial-gradient(
+        circle at center,
+        transparent 0%,
+        transparent 10%,
+        rgba(157, 78, 221, 0.15) 10%,
+        rgba(157, 78, 221, 0.15) 11%
+    );
+    border-radius: 50%;
+    animation: rotatePath 120s linear infinite;
+}
+
+@keyframes rotatePath {
+    from { transform: translate(-50%, -50%) rotate(0deg); }
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Кристалл */
+.crystal {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 120px;
+    height: 120px;
+    z-index: 10;
+}
+
+.crystal-core {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, #00ffea, #0088ff, #9d4edd);
+    clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    animation: crystalPulse 3s infinite alternate;
+}
+
+.crystal-glow {
+    position: absolute;
+    top: -20px;
+    left: -20px;
+    right: -20px;
+    bottom: -20px;
+    background: radial-gradient(circle, rgba(0, 255, 234, 0.3), transparent 70%);
+    border-radius: 50%;
+    z-index: -1;
+    animation: glowPulse 2s infinite alternate;
+}
+
+@keyframes crystalPulse {
+    0% { transform: scale(1); opacity: 0.8; }
+    100% { transform: scale(1.1); opacity: 1; }
+}
+
+@keyframes glowPulse {
+    0% { opacity: 0.3; }
+    100% { opacity: 0.7; }
+}
+
+/* Контейнеры для игровых объектов */
+.towers-container, .enemies-container, .projectiles-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+/* Панель управления */
+.control-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+.tower-shop, .game-log {
+    background: rgba(20, 15, 60, 0.9);
+    border-radius: 15px;
+    padding: 25px;
+    border: 2px solid #4a3eff;
+    box-shadow: 0 0 20px rgba(74, 62, 255, 0.3);
+}
+
+.tower-shop h3, .game-log h3 {
+    font-family: 'Orbitron', sans-serif;
+    color: #9d8eff;
+    margin-bottom: 20px;
+    font-size: 1.4rem;
+}
+
+.tower-option {
+    background: rgba(40, 35, 90, 0.6);
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.tower-option:hover {
+    background: rgba(60, 50, 120, 0.8);
+    border-color: #00ffea;
+    transform: translateY(-3px);
+}
+
+.tower-option.selected {
+    border-color: #ff3366;
+    background: rgba(80, 40, 100, 0.8);
+}
+
+.tower-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+}
+
+.arcane-tower-icon {
+    background: linear-gradient(135deg, #9d4edd, #5a00cc);
+}
+
+.frost-tower-icon {
+    background: linear-gradient(135deg, #00c6ff, #0072ff);
+}
+
+.storm-tower-icon {
+    background: linear-gradient(135deg, #ffd700, #ff8c00);
+}
+
+.tower-desc h4 {
+    color: #e0e0ff;
+    margin-bottom: 5px;
+    font-size: 1.2rem;
+}
+
+.tower-desc p {
+    color: #9d8eff;
+    font-size: 0.9rem;
+    margin: 3px 0;
+}
+
+.cost {
+    color: #00ffea !important;
+    font-weight: bold;
+    margin-top: 8px !important;
+}
+
+/* Кнопки */
+.game-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.btn {
+    padding: 18px;
+    border: none;
+    border-radius: 10px;
+    font-family: 'Exo 2', sans-serif;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.start-btn {
+    background: linear-gradient(135deg, #00b09b, #96c93d);
+    color: white;
+}
+
+.start-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px #00b09b;
+}
+
+.upgrade-btn {
+    background: linear-gradient(135deg, #9d4edd, #5a00cc);
+    color: white;
+}
+
+.sell-btn {
+    background: linear-gradient(135deg, #ff3366, #ff0066);
+    color: white;
+}
+
+/* Лог игры */
+.log-content {
+    max-height: 200px;
+    overflow-y: auto;
+    padding-right: 10px;
+}
+
+.log-content p {
+    padding: 8px;
+    margin-bottom: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 5px;
+    border-left: 3px solid #00ffea;
+    font-size: 0.9rem;
+}
+
+/* Подсказка */
+.hint {
+    background: rgba(20, 15, 60, 0.8);
+    border-radius: 10px;
+    padding: 15px;
+    text-align: center;
+    border: 1px solid #00ffea;
+    color: #9d8eff;
+}
+
+/* Модальное окно */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background: linear-gradient(135deg, #0f0c29, #302b63);
+    padding: 40px;
+    border-radius: 20px;
+    max-width: 600px;
+    width: 90%;
+    text-align: center;
+    border: 3px solid #9d4edd;
+    box-shadow: 0 0 50px rgba(157, 78, 221, 0.5);
+}
+
+#modalTitle {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 3rem;
+    background: linear-gradient(90deg, #00ffea, #9d4edd);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin-bottom: 20px;
+}
+
+#modalMessage {
+    font-size: 1.3rem;
+    margin-bottom: 30px;
+    color: #e0e0ff;
+}
+
+.modal-btn {
+    background: linear-gradient(135deg, #9d4edd, #5a00cc);
+    color: white;
+    padding: 15px 40px;
+    margin: 10px auto;
+    font-size: 1.2rem;
+    min-width: 200px;
+}
+
+.instructions {
+    margin-top: 30px;
+    text-align: left;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 20px;
+    border-radius: 10px;
+}
+
+.instructions h3 {
+    color: #00ffea;
+    margin-bottom: 15px;
+}
+
+.instructions ul {
+    list-style: none;
+    padding-left: 0;
+}
+
+.instructions li {
+    padding: 8px 0;
+    color: #9d8eff;
+    border-bottom: 1px solid rgba(157, 142, 255, 0.2);
+}
+
+.instructions li:before {
+    content: "✨ ";
+}
+
+/* Адаптивность */
+@media (max-width: 1200px) {
+    .game-container {
+        flex-direction: column;
+    }
+    
+    .game-area {
+        height: 500px;
+    }
+}
+
+@media (max-width: 768px) {
+    header h1 {
+        font-size: 2rem;
+    }
+    
+    .game-info {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .info-item {
+        width: 100%;
+    }
+}
