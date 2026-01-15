@@ -1,77 +1,156 @@
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SmartHome-Home</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-sRIl4kxILFvY47J16cr9ZwB07vP4J8+LH7qKQnuqkuIAvNWLzeN8tE5YBujZqJLB" crossorigin="anonymous">
-  </head>
-  <body>
-    <div class="p-3 mb-2 bg-transparent text-body">.bg-transparent
-    <h1>Home</h1>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcane Tower Defense | GitHub Pages</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Exo+2:wght@300;400&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Шапка -->
+        <header>
+            <h1><i class="fas fa-gem"></i> ARCANE TOWER DEFENSE</h1>
+            <div class="game-info">
+                <div class="info-item">
+                    <span class="label">Энергия:</span>
+                    <span id="energy" class="value">100</span>
+                    <div class="energy-bar">
+                        <div class="energy-fill"></div>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <span class="label">Волна:</span>
+                    <span id="wave" class="value">1/10</span>
+                </div>
+                <div class="info-item">
+                    <span class="label">Жизни:</span>
+                    <span id="lives" class="value">20</span>
+                    <div class="hearts">
+                        <i class="fas fa-heart"></i><i class="fas fa-heart"></i><i class="fas fa-heart"></i>
+                    </div>
+                </div>
+            </div>
+        </header>
 
-    <nav class="navbar navbar-expand-lg bg-body-tertiary">
-  <div class="container-fluid">
-    <a class="navbar-brand" href="light.html">Light</a>
-    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-      <span class="navbar-toggler-icon"></span>
-    </button>
-    <div class="collapse navbar-collapse" id="navbarSupportedContent">
-      <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-        <li class="nav-item">
-          <a class="nav-link active" aria-current="page" href="index.html">Home</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="security.html">Security</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="termo.html">Temperature</a>
-        </li>
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-            Menu
-          </a>
-          <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="about.html">About</a></li>
-            <li><a class="dropdown-item" href="setting.html">Settings</a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item" href="register.html">Registeration</a></li>
-          </ul>
-        </li>
+        <div class="game-container">
+            <!-- Игровое поле -->
+            <div class="game-area">
+                <!-- Магический кристалл в центре -->
+                <div class="crystal" id="crystal">
+                    <div class="crystal-core"></div>
+                    <div class="crystal-glow"></div>
+                </div>
 
-        <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-            Devices
-          </a>
-          <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="about.html">1</a></li>
-            <li><a class="dropdown-item" href="setting.html">2</a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item" href="register.html">3</a></li>
-          </ul>
-        </li>
+                <!-- Пути для врагов (спираль) -->
+                <div class="path"></div>
+                
+                <!-- Здесь будут появляться башни (JS) -->
+                <div class="towers-container" id="towersContainer"></div>
+                
+                <!-- Здесь будут появляться враги (JS) -->
+                <div class="enemies-container" id="enemiesContainer"></div>
+                
+                <!-- Снаряды (JS) -->
+                <div class="projectiles-container" id="projectilesContainer"></div>
+            </div>
 
-         <li class="nav-item dropdown">
-          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-            Scenarios
-          </a>
-          <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="about.html">Aut home</a></li>
-            <li><a class="dropdown-item" href="setting.html">Night</a></li>
-            <li><hr class="dropdown-divider"></li>
-            <li><a class="dropdown-item" href="register.html">Morning</a></li>
-          </ul>
-        </li>
-        
-      </ul>
-      <form class="d-flex" role="search">
-        <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search"/>
-        <button class="btn btn-outline-success" type="submit">Search</button>
-      </form>
+            <!-- Панель управления -->
+            <div class="control-panel">
+                <div class="tower-shop">
+                    <h3><i class="fas fa-store"></i> Магазин башен</h3>
+                    <div class="tower-option" data-type="arcane" data-cost="30">
+                        <div class="tower-icon arcane-tower-icon">
+                            <i class="fas fa-hat-wizard"></i>
+                        </div>
+                        <div class="tower-desc">
+                            <h4>Аркана</h4>
+                            <p>Урон: <span class="damage">15</span></p>
+                            <p>Радиус: <span class="radius">150px</span></p>
+                            <p class="cost"><i class="fas fa-bolt"></i> <span>30</span> энергии</p>
+                        </div>
+                    </div>
+                    
+                    <div class="tower-option" data-type="frost" data-cost="50">
+                        <div class="tower-icon frost-tower-icon">
+                            <i class="fas fa-snowflake"></i>
+                        </div>
+                        <div class="tower-desc">
+                            <h4>Ледяная</h4>
+                            <p>Урон: <span class="damage">10</span></p>
+                            <p>Замедление: <span class="slow">40%</span></p>
+                            <p class="cost"><i class="fas fa-bolt"></i> <span>50</span> энергии</p>
+                        </div>
+                    </div>
+                    
+                    <div class="tower-option" data-type="storm" data-cost="80">
+                        <div class="tower-icon storm-tower-icon">
+                            <i class="fas fa-bolt"></i>
+                        </div>
+                        <div class="tower-desc">
+                            <h4>Грозовая</h4>
+                            <p>Урон: <span class="damage">25</span></p>
+                            <p>Цепная молния: <span class="chain">3 цели</span></p>
+                            <p class="cost"><i class="fas fa-bolt"></i> <span>80</span> энергии</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="game-controls">
+                    <button id="startWave" class="btn start-btn">
+                        <i class="fas fa-play"></i> Начать волну
+                    </button>
+                    <button id="upgradeCrystal" class="btn upgrade-btn">
+                        <i class="fas fa-gem"></i> Улучшить кристалл (+50 энергии)
+                    </button>
+                    <button id="sellTower" class="btn sell-btn">
+                        <i class="fas fa-coins"></i> Продать башню
+                    </button>
+                </div>
+                
+                <div class="game-log" id="gameLog">
+                    <h3><i class="fas fa-scroll"></i> Лог событий</h3>
+                    <div class="log-content">
+                        <p>Защитите магический кристалл от теней!</p>
+                        <p>Постройте башни на пути врагов.</p>
+                        <p>Каждая башня стоит энергии.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Подсказка -->
+        <div class="hint">
+            <p><i class="fas fa-lightbulb"></i> <strong>Подсказка:</strong> Нажмите на башню в магазине, затем кликните на игровом поле для установки</p>
+        </div>
+
+        <!-- Модальное окно (начало/конец игры) -->
+        <div class="modal" id="gameModal">
+            <div class="modal-content">
+                <h2 id="modalTitle">Arcane Defense</h2>
+                <p id="modalMessage">Защитите кристалл от 10 волн теней!</p>
+                <button id="startGame" class="btn modal-btn">Начать игру</button>
+                <button id="restartGame" class="btn modal-btn" style="display:none;">Играть снова</button>
+                <div class="instructions">
+                    <h3>Как играть:</h3>
+                    <ul>
+                        <li>Купите башни в магазине (клик на иконке)</li>
+                        <li>Установите башню на игровом поле (клик)</li>
+                        <li>Нажмите "Начать волну"</li>
+                        <li>Башни атакуют автоматически</li>
+                        <li>Улучшайте кристалл для больше энергии</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
     </div>
-  </div>
-</nav>
-      </div>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js" integrity="sha384-FKyoEForCGlyvwx9Hj09JcYn3nv7wiPVlz7YYwJrWVcXK/BmnVDxM+D2scQbITxI" crossorigin="anonymous"></script>
-  </body>
+
+    <!-- Аудио элементы (опционально) -->
+    <audio id="shootSound" src="https://assets.mixkit.co/sfx/preview/mixkit-short-laser-gun-shot-1670.mp3" preload="auto"></audio>
+    <audio id="enemyDieSound" src="https://assets.mixkit.co/sfx/preview/mixkit-magic-spell-hit-2766.mp3" preload="auto"></audio>
+
+    <script src="game.js"></script>
+</body>
 </html>
