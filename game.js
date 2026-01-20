@@ -1,758 +1,927 @@
-// Игровые переменные
-let gameState = {
-    energy: 100,
-    lives: 20,
-    wave: 1,
-    maxWaves: 10,
-    gameActive: false,
-    selectedTower: null,
-    towers: [],
-    enemies: [],
-    projectiles: [],
-    enemyId: 0,
-    projectileId: 0,
-    waveInProgress: false,
-    enemyCount: 0,
-    enemiesKilled: 0
-};
+// game.js
 
-// DOM элементы
-const energyEl = document.getElementById('energy');
-const livesEl = document.getElementById('lives');
-const waveEl = document.getElementById('wave');
-const energyFill = document.querySelector('.energy-fill');
-const towersContainer = document.getElementById('towersContainer');
-const enemiesContainer = document.getElementById('enemiesContainer');
-const projectilesContainer = document.getElementById('projectilesContainer');
-const startWaveBtn = document.getElementById('startWave');
-const upgradeCrystalBtn = document.getElementById('upgradeCrystal');
-const sellTowerBtn = document.getElementById('sellTower');
-const gameLog = document.querySelector('.log-content');
-const gameModal = document.getElementById('gameModal');
-const modalTitle = document.getElementById('modalTitle');
-const modalMessage = document.getElementById('modalMessage');
-const startGameBtn = document.getElementById('startGame');
-const restartGameBtn = document.getElementById('restartGame');
-
-// Башни
-const towerTypes = {
-    arcane: {
-        name: "Аркана",
-        damage: 15,
-        range: 150,
-        cost: 30,
-        color: "#9d4edd",
-        icon: "fas fa-hat-wizard",
-        cooldown: 1000
-    },
-    frost: {
-        name: "Ледяная",
-        damage: 10,
-        range: 120,
-        cost: 50,
-        color: "#00c6ff",
-        icon: "fas fa-snowflake",
-        cooldown: 800,
-        slow: 0.4
-    },
-    storm: {
-        name: "Грозовая",
-        damage: 25,
-        range: 180,
-        cost: 80,
-        color: "#ffd700",
-        icon: "fas fa-bolt",
-        cooldown: 1500,
-        chain: 3
-    }
-};
-
-// Враги
-const enemyTypes = [
-    { health: 30, speed: 1.5, color: "#666666", points: 10 },
-    { health: 50, speed: 1.0, color: "#993333", points: 20 },
-    { health: 80, speed: 0.7, color: "#660066", points: 30 }
-];
-
-// Инициализация
-function initGame() {
-    updateUI();
-    setupEventListeners();
-    showModal("Arcane Tower Defense", "Защитите кристалл от 10 волн теней!");
+// Инициализация игры
+document.addEventListener('DOMContentLoaded', function() {
+    // Получаем элементы DOM
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const livesElement = document.getElementById('lives');
+    const goldElement = document.getElementById('gold');
+    const waveElement = document.getElementById('wave');
+    const startWaveButton = document.getElementById('startWave');
+    const upgradeButton = document.getElementById('upgradeTower');
+    const sellButton = document.getElementById('sellTower');
+    const gameMessages = document.getElementById('gameMessages');
+    const towerItems = document.querySelectorAll('.tower-item');
     
-    // Создаем точку спавна врагов (вне экрана)
-    createSpawnPoint();
-}
-
-// Создание точки спавна
-function createSpawnPoint() {
-    const spawn = document.createElement('div');
-    spawn.className = 'spawn-point';
-    spawn.style.cssText = `
-        position: absolute;
-        top: 50px;
-        left: 50px;
-        width: 30px;
-        height: 30px;
-        background: radial-gradient(circle, #ff0066, transparent 70%);
-        border-radius: 50%;
-        z-index: 5;
-    `;
-    document.querySelector('.game-area').appendChild(spawn);
-}
-
-// Настройка событий
-function setupEventListeners() {
-    // Выбор башни
-    document.querySelectorAll('.tower-option').forEach(option => {
-        option.addEventListener('click', function() {
-            const type = this.dataset.type;
-            const cost = parseInt(this.dataset.cost);
-            
-            if (gameState.energy >= cost) {
-                document.querySelectorAll('.tower-option').forEach(opt => 
-                    opt.classList.remove('selected'));
-                this.classList.add('selected');
-                gameState.selectedTower = { type, cost };
-                addLog(`Выбрана ${towerTypes[type].name} башня`);
-            } else {
-                addLog("Недостаточно энергии!");
+    // Состояние игры
+    const gameState = {
+        lives: 20,
+        gold: 100,
+        wave: 1,
+        isWaveActive: false,
+        selectedTowerType: null,
+        selectedTowerCost: 0,
+        selectedTower: null,
+        towers: [],
+        enemies: [],
+        projectiles: [],
+        cells: [],
+        cellSize: 40,
+        lastTime: 0,
+        enemySpawnTimer: 0,
+        enemySpawnInterval: 2000, // мс между появлением врагов
+        enemiesInWave: 5,
+        enemiesSpawned: 0
+    };
+    
+    // Путь для врагов (точки в процентах от ширины/высоты canvas)
+    const enemyPath = [
+        {x: 0, y: 0.5},          // Начало пути (левая сторона)
+        {x: 0.4, y: 0.5},        // Первая точка
+        {x: 0.4, y: 0.2},        // Вверх
+        {x: 0.7, y: 0.2},        // Вправо
+        {x: 0.7, y: 0.7},        // Вниз
+        {x: 1, y: 0.7}           // Конец пути (правая сторона)
+    ];
+    
+    // Конвертируем процентные координаты в пиксельные
+    function getPixelPath() {
+        return enemyPath.map(point => ({
+            x: point.x * canvas.width,
+            y: point.y * canvas.height
+        }));
+    }
+    
+    // Инициализация игрового поля
+    function initGameField() {
+        // Создаем сетку клеток для размещения башен
+        const cols = Math.floor(canvas.width / gameState.cellSize);
+        const rows = Math.floor(canvas.height / gameState.cellSize);
+        
+        for (let x = 0; x < cols; x++) {
+            for (let y = 0; y < rows; y++) {
+                gameState.cells.push({
+                    x: x * gameState.cellSize,
+                    y: y * gameState.cellSize,
+                    width: gameState.cellSize,
+                    height: gameState.cellSize,
+                    occupied: false,
+                    tower: null
+                });
             }
+        }
+        
+        // Отмечаем клетки на пути врагов как занятые
+        const path = getPixelPath();
+        const pathWidth = gameState.cellSize * 1.5; // Ширина пути
+        
+        gameState.cells.forEach(cell => {
+            // Проверяем, находится ли клетка рядом с путем
+            const cellCenterX = cell.x + cell.width/2;
+            const cellCenterY = cell.y + cell.height/2;
+            
+            for (let i = 0; i < path.length - 1; i++) {
+                const start = path[i];
+                const end = path[i+1];
+                
+                // Упрощенная проверка расстояния от точки до отрезка
+                const distance = pointToSegmentDistance(
+                    cellCenterX, cellCenterY, 
+                    start.x, start.y, 
+                    end.x, end.y
+                );
+                
+                if (distance < pathWidth) {
+                    cell.occupied = true;
+                    break;
+                }
+            }
+        });
+    }
+    
+    // Функция расчета расстояния от точки до отрезка
+    function pointToSegmentDistance(px, py, x1, y1, x2, y2) {
+        const A = px - x1;
+        const B = py - y1;
+        const C = x2 - x1;
+        const D = y2 - y1;
+
+        const dot = A * C + B * D;
+        const lenSq = C * C + D * D;
+        let param = -1;
+        
+        if (lenSq !== 0) {
+            param = dot / lenSq;
+        }
+
+        let xx, yy;
+
+        if (param < 0) {
+            xx = x1;
+            yy = y1;
+        } else if (param > 1) {
+            xx = x2;
+            yy = y2;
+        } else {
+            xx = x1 + param * C;
+            yy = y1 + param * D;
+        }
+
+        const dx = px - xx;
+        const dy = py - yy;
+        
+        return Math.sqrt(dx * dx + dy * dy);
+    }
+    
+    // Выбор башни в магазине
+    towerItems.forEach(item => {
+        item.addEventListener('click', function() {
+            // Снимаем выделение со всех башен
+            towerItems.forEach(i => i.classList.remove('selected'));
+            
+            // Выделяем выбранную башню
+            this.classList.add('selected');
+            
+            // Сохраняем тип и стоимость выбранной башни
+            gameState.selectedTowerType = this.dataset.type;
+            gameState.selectedTowerCost = parseInt(this.dataset.cost);
+            
+            showMessage(`Выбрана ${this.querySelector('h3').textContent}. Кликните на поле для установки.`);
+            
+            // Активируем режим размещения башни
+            canvas.style.cursor = 'crosshair';
         });
     });
     
-    // Установка башни
-    document.querySelector('.game-area').addEventListener('click', function(e) {
-        if (!gameState.selectedTower || gameState.waveInProgress) return;
+    // Размещение башни на поле
+    canvas.addEventListener('click', function(e) {
+        if (!gameState.selectedTowerType || gameState.isWaveActive) return;
         
-        const rect = this.getBoundingClientRect();
+        const rect = canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
         
-        // Проверяем, не слишком ли близко к кристаллу
-        const crystal = document.getElementById('crystal');
-        const crystalRect = crystal.getBoundingClientRect();
-        const crystalX = crystalRect.left - rect.left + crystalRect.width/2;
-        const crystalY = crystalRect.top - rect.top + crystalRect.height/2;
+        // Находим клетку, по которой кликнули
+        const cell = gameState.cells.find(c => 
+            x >= c.x && x <= c.x + c.width && 
+            y >= c.y && y <= c.y + c.height
+        );
         
-        const distance = Math.sqrt(Math.pow(x - crystalX, 2) + Math.pow(y - crystalY, 2));
-        
-        if (distance < 200) {
-            addLog("Нельзя строить так близко к кристаллу!");
-            return;
+        if (cell && !cell.occupied) {
+            // Проверяем, хватает ли золота
+            if (gameState.gold >= gameState.selectedTowerCost) {
+                // Создаем башню
+                const tower = createTower(
+                    cell.x + cell.width/2, 
+                    cell.y + cell.height/2, 
+                    gameState.selectedTowerType
+                );
+                
+                // Добавляем башню в игру
+                gameState.towers.push(tower);
+                
+                // Обновляем клетку
+                cell.occupied = true;
+                cell.tower = tower;
+                
+                // Вычитаем стоимость
+                gameState.gold -= gameState.selectedTowerCost;
+                updateUI();
+                
+                showMessage(`Башня установлена! Осталось ${gameState.gold} золота.`);
+                
+                // Сбрасываем выбор
+                resetTowerSelection();
+            } else {
+                showMessage(`Недостаточно золота! Нужно ${gameState.selectedTowerCost}, а у вас ${gameState.gold}.`);
+            }
         }
-        
-        placeTower(gameState.selectedTower.type, x, y);
     });
     
-    // Начало волны
-    startWaveBtn.addEventListener('click', startWave);
+    // Создание башни
+    function createTower(x, y, type) {
+        const towerTypes = {
+            basic: {
+                damage: 5,
+                range: 150,
+                color: '#3498db',
+                upgradeCost: 25,
+                level: 1,
+                fireRate: 1000 // мс между выстрелами
+            },
+            sniper: {
+                damage: 25,
+                range: 300,
+                color: '#9b59b6',
+                upgradeCost: 50,
+                level: 1,
+                fireRate: 2000
+            },
+            splash: {
+                damage: 10,
+                range: 120,
+                color: '#e74c3c',
+                upgradeCost: 40,
+                level: 1,
+                fireRate: 1500,
+                splashRadius: 60
+            }
+        };
+        
+        const config = towerTypes[type];
+        
+        return {
+            x, y,
+            type,
+            damage: config.damage,
+            range: config.range,
+            color: config.color,
+            upgradeCost: config.upgradeCost,
+            level: config.level,
+            fireRate: config.fireRate,
+            lastShot: 0,
+            target: null,
+            splashRadius: config.splashRadius || 0
+        };
+    }
     
-    // Улучшение кристалла
-    upgradeCrystalBtn.addEventListener('click', function() {
-        if (gameState.energy >= 100) {
-            gameState.energy -= 100;
-            gameState.energy += 50; // Добавляем 50 энергии
-            updateUI();
-            addLog("Кристалл улучшен! +50 энергии");
+    // Сброс выбора башни
+    function resetTowerSelection() {
+        towerItems.forEach(i => i.classList.remove('selected'));
+        gameState.selectedTowerType = null;
+        gameState.selectedTowerCost = 0;
+        canvas.style.cursor = 'default';
+    }
+    
+    // Создание врага
+    function createEnemy() {
+        const enemyTypes = [
+            {health: 20, speed: 1, color: '#2ecc71', gold: 5},
+            {health: 40, speed: 0.7, color: '#f39c12', gold: 10},
+            {health: 60, speed: 0.5, color: '#e74c3c', gold: 15}
+        ];
+        
+        // Выбираем тип врага в зависимости от волны
+        let typeIndex = 0;
+        if (gameState.wave > 3) typeIndex = 1;
+        if (gameState.wave > 6) typeIndex = 2;
+        
+        const type = enemyTypes[typeIndex];
+        
+        // Начинаем с первой точки пути
+        const path = getPixelPath();
+        
+        return {
+            x: path[0].x,
+            y: path[0].y,
+            health: type.health + (gameState.wave * 2), // Увеличиваем здоровье с волнами
+            maxHealth: type.health + (gameState.wave * 2),
+            speed: type.speed,
+            color: type.color,
+            gold: type.gold + Math.floor(gameState.wave / 2),
+            pathIndex: 0,
+            path: path,
+            reachedEnd: false
+        };
+    }
+    
+    // Обновление врагов
+    function updateEnemies(deltaTime) {
+        for (let i = gameState.enemies.length - 1; i >= 0; i--) {
+            const enemy = gameState.enemies[i];
+            
+            // Проверяем, дошел ли враг до конца
+            if (enemy.reachedEnd) {
+                // Уменьшаем жизни
+                gameState.lives--;
+                updateUI();
+                
+                // Удаляем врага
+                gameState.enemies.splice(i, 1);
+                
+                showMessage(`Враг достиг цели! Осталось ${gameState.lives} жизней.`);
+                
+                // Проверяем окончание игры
+                if (gameState.lives <= 0) {
+                    endGame(false);
+                }
+                
+                continue;
+            }
+            
+            // Двигаем врага по пути
+            const targetPoint = enemy.path[enemy.pathIndex + 1];
+            
+            if (targetPoint) {
+                const dx = targetPoint.x - enemy.x;
+                const dy = targetPoint.y - enemy.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < 2) {
+                    // Достигли точки пути, переходим к следующей
+                    enemy.pathIndex++;
+                    
+                    // Проверяем, дошли ли до конца пути
+                    if (enemy.pathIndex >= enemy.path.length - 1) {
+                        enemy.reachedEnd = true;
+                    }
+                } else {
+                    // Двигаемся к точке
+                    const moveDistance = enemy.speed * (deltaTime / 16);
+                    enemy.x += (dx / distance) * moveDistance;
+                    enemy.y += (dy / distance) * moveDistance;
+                }
+            }
+        }
+    }
+    
+    // Обновление башен
+    function updateTowers(deltaTime) {
+        gameState.towers.forEach(tower => {
+            // Ищем цель для башни
+            if (!tower.target || tower.target.health <= 0) {
+                tower.target = findTargetForTower(tower);
+            }
+            
+            // Стреляем по цели
+            if (tower.target && tower.target.health > 0) {
+                const currentTime = Date.now();
+                
+                if (currentTime - tower.lastShot > tower.fireRate) {
+                    shootAtTarget(tower, tower.target);
+                    tower.lastShot = currentTime;
+                }
+            }
+        });
+    }
+    
+    // Поиск цели для башни
+    function findTargetForTower(tower) {
+        let closestEnemy = null;
+        let closestDistance = tower.range;
+        
+        for (const enemy of gameState.enemies) {
+            const dx = enemy.x - tower.x;
+            const dy = enemy.y - tower.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < closestDistance) {
+                closestEnemy = enemy;
+                closestDistance = distance;
+            }
+        }
+        
+        return closestEnemy;
+    }
+    
+    // Выстрел по цели
+    function shootAtTarget(tower, target) {
+        // Создаем снаряд
+        const projectile = {
+            x: tower.x,
+            y: tower.y,
+            target: target,
+            damage: tower.damage,
+            color: tower.color,
+            speed: 5,
+            splashRadius: tower.splashRadius
+        };
+        
+        gameState.projectiles.push(projectile);
+        
+        // Эффект выстрела
+        drawShotEffect(tower.x, tower.y, target.x, target.y, tower.color);
+    }
+    
+    // Обновление снарядов
+    function updateProjectiles() {
+        for (let i = gameState.projectiles.length - 1; i >= 0; i--) {
+            const projectile = gameState.projectiles[i];
+            
+            // Проверяем, существует ли еще цель
+            if (!projectile.target || projectile.target.health <= 0) {
+                gameState.projectiles.splice(i, 1);
+                continue;
+            }
+            
+            // Двигаем снаряд к цели
+            const dx = projectile.target.x - projectile.x;
+            const dy = projectile.target.y - projectile.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < 10) {
+                // Попадание!
+                applyDamage(projectile);
+                gameState.projectiles.splice(i, 1);
+            } else {
+                // Продолжаем движение
+                projectile.x += (dx / distance) * projectile.speed;
+                projectile.y += (dy / distance) * projectile.speed;
+            }
+        }
+    }
+    
+    // Нанесение урона
+    function applyDamage(projectile) {
+        if (projectile.splashRadius > 0) {
+            // Сплэш-урон по области
+            for (const enemy of gameState.enemies) {
+                const dx = enemy.x - projectile.target.x;
+                const dy = enemy.y - projectile.target.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < projectile.splashRadius) {
+                    // Урон уменьшается с расстоянием
+                    const damageMultiplier = 1 - (distance / projectile.splashRadius) * 0.5;
+                    enemy.health -= projectile.damage * damageMultiplier;
+                    
+                    // Проверяем, убит ли враг
+                    if (enemy.health <= 0) {
+                        gameState.gold += enemy.gold;
+                        showMessage(`Враг убит! Получено ${enemy.gold} золота.`);
+                    }
+                }
+            }
         } else {
-            addLog("Нужно 100 энергии для улучшения");
+            // Обычный урон по одной цели
+            projectile.target.health -= projectile.damage;
+            
+            // Проверяем, убит ли враг
+            if (projectile.target.health <= 0) {
+                gameState.gold += projectile.target.gold;
+                showMessage(`Враг убит! Получено ${projectile.target.gold} золота.`);
+            }
+        }
+        
+        updateUI();
+    }
+    
+    // Отрисовка игры
+    function draw() {
+        // Очищаем canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Рисуем сетку
+        drawGrid();
+        
+        // Рисуем путь врагов
+        drawPath();
+        
+        // Рисуем башни
+        gameState.towers.forEach(drawTower);
+        
+        // Рисуем врагов
+        gameState.enemies.forEach(drawEnemy);
+        
+        // Рисуем снаряды
+        gameState.projectiles.forEach(drawProjectile);
+        
+        // Рисуем информацию о выбранной башне
+        if (gameState.selectedTower) {
+            drawTowerRange(gameState.selectedTower);
+        }
+    }
+    
+    // Рисуем сетку
+    function drawGrid() {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.lineWidth = 1;
+        
+        // Вертикальные линии
+        for (let x = 0; x <= canvas.width; x += gameState.cellSize) {
+            ctx.beginPath();
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, canvas.height);
+            ctx.stroke();
+        }
+        
+        // Горизонтальные линии
+        for (let y = 0; y <= canvas.height; y += gameState.cellSize) {
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(canvas.width, y);
+            ctx.stroke();
+        }
+    }
+    
+    // Рисуем путь врагов
+    function drawPath() {
+        const path = getPixelPath();
+        
+        ctx.strokeStyle = 'rgba(46, 204, 113, 0.6)';
+        ctx.lineWidth = 30;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        ctx.beginPath();
+        ctx.moveTo(path[0].x, path[0].y);
+        
+        for (let i = 1; i < path.length; i++) {
+            ctx.lineTo(path[i].x, path[i].y);
+        }
+        
+        ctx.stroke();
+        
+        // Рисуем границы пути
+        ctx.strokeStyle = 'rgba(46, 204, 113, 0.9)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Рисуем точки пути
+        for (let i = 0; i < path.length; i++) {
+            ctx.fillStyle = i === 0 ? '#e74c3c' : (i === path.length - 1 ? '#3498db' : '#f1c40f');
+            ctx.beginPath();
+            ctx.arc(path[i].x, path[i].y, 8, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#2c3e50';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+    }
+    
+    // Рисуем башню
+    function drawTower(tower) {
+        // Основание башни
+        ctx.fillStyle = tower.color;
+        ctx.beginPath();
+        ctx.arc(tower.x, tower.y, 15, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Обводка
+        ctx.strokeStyle = '#2c3e50';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        // Уровень башни
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(tower.level.toString(), tower.x, tower.y);
+        
+        // Если башня выбрана, показываем радиус
+        if (gameState.selectedTower === tower) {
+            drawTowerRange(tower);
+        }
+    }
+    
+    // Рисуем радиус башни
+    function drawTowerRange(tower) {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(tower.x, tower.y, tower.range, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Заливка радиуса
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.fill();
+    }
+    
+    // Рисуем врага
+    function drawEnemy(enemy) {
+        // Тело врага
+        ctx.fillStyle = enemy.color;
+        ctx.beginPath();
+        ctx.arc(enemy.x, enemy.y, 12, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Обводка
+        ctx.strokeStyle = '#2c3e50';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Полоска здоровья
+        const healthWidth = 30;
+        const healthPercent = enemy.health / enemy.maxHealth;
+        
+        // Фон полоски
+        ctx.fillStyle = '#2c3e50';
+        ctx.fillRect(enemy.x - healthWidth/2, enemy.y - 25, healthWidth, 5);
+        
+        // Здоровье
+        ctx.fillStyle = healthPercent > 0.5 ? '#2ecc71' : (healthPercent > 0.25 ? '#f39c12' : '#e74c3c');
+        ctx.fillRect(enemy.x - healthWidth/2, enemy.y - 25, healthWidth * healthPercent, 5);
+        
+        // Обводка полоски
+        ctx.strokeStyle = '#34495e';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(enemy.x - healthWidth/2, enemy.y - 25, healthWidth, 5);
+    }
+    
+    // Рисуем снаряд
+    function drawProjectile(projectile) {
+        ctx.fillStyle = projectile.color;
+        ctx.beginPath();
+        ctx.arc(projectile.x, projectile.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.strokeStyle = '#2c3e50';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+    
+    // Эффект выстрела
+    function drawShotEffect(fromX, fromY, toX, toY, color) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(fromX, fromY);
+        ctx.lineTo(toX, toY);
+        ctx.stroke();
+        
+        // Исчезающий эффект
+        setTimeout(() => {
+            // Перерисовываем игру
+            draw();
+        }, 50);
+    }
+    
+    // Обновление интерфейса
+    function updateUI() {
+        livesElement.textContent = gameState.lives;
+        goldElement.textContent = gameState.gold;
+        waveElement.textContent = gameState.wave;
+        
+        // Обновляем состояние кнопок
+        upgradeButton.disabled = !gameState.selectedTower || gameState.isWaveActive;
+        sellButton.disabled = !gameState.selectedTower || gameState.isWaveActive;
+    }
+    
+    // Показ сообщений
+    function showMessage(message) {
+        gameMessages.innerHTML = `<p><i class="fas fa-info-circle"></i> ${message}</p>`;
+        
+        // Автоочистка через 3 секунды (кроме критических сообщений)
+        if (!message.includes('жизней') && !message.includes('победили') && !message.includes('проиграли')) {
+            setTimeout(() => {
+                if (gameMessages.innerHTML.includes(message)) {
+                    gameMessages.innerHTML = '<p>Игра продолжается...</p>';
+                }
+            }, 3000);
+        }
+    }
+    
+    // Начало волны
+    startWaveButton.addEventListener('click', function() {
+        if (!gameState.isWaveActive) {
+            startWave();
+        }
+    });
+    
+    // Улучшение башни
+    upgradeButton.addEventListener('click', function() {
+        if (gameState.selectedTower && !gameState.isWaveActive) {
+            upgradeTower(gameState.selectedTower);
         }
     });
     
     // Продажа башни
-    sellTowerBtn.addEventListener('click', function() {
-        if (gameState.selectedTower) {
-            gameState.selectedTower = null;
-            document.querySelectorAll('.tower-option').forEach(opt => 
-                opt.classList.remove('selected'));
-            addLog("Режим продажи: кликните на башню для продажи");
-        } else {
-            gameState.selectedTower = 'sell';
+    sellButton.addEventListener('click', function() {
+        if (gameState.selectedTower && !gameState.isWaveActive) {
+            sellTower(gameState.selectedTower);
         }
     });
     
-    // Кнопки модального окна
-    startGameBtn.addEventListener('click', function() {
-        gameModal.style.display = 'none';
-        gameState.gameActive = true;
-    });
-    
-    restartGameBtn.addEventListener('click', function() {
-        location.reload();
-    });
-}
-
-// Размещение башни
-function placeTower(type, x, y) {
-    const tower = towerTypes[type];
-    
-    if (gameState.energy < tower.cost) {
-        addLog("Недостаточно энергии!");
-        return;
-    }
-    
-    gameState.energy -= tower.cost;
-    
-    const towerEl = document.createElement('div');
-    towerEl.className = 'tower';
-    towerEl.dataset.type = type;
-    towerEl.style.cssText = `
-        position: absolute;
-        left: ${x - 25}px;
-        top: ${y - 25}px;
-        width: 50px;
-        height: 50px;
-        background: ${tower.color};
-        border-radius: 50%;
-        border: 3px solid white;
-        box-shadow: 0 0 20px ${tower.color};
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 1.2rem;
-        z-index: 20;
-        pointer-events: auto;
-        cursor: pointer;
-    `;
-    
-    const icon = document.createElement('i');
-    icon.className = tower.icon;
-    towerEl.appendChild(icon);
-    
-    // Радиус атаки
-    const rangeEl = document.createElement('div');
-    rangeEl.className = 'tower-range';
-    rangeEl.style.cssText = `
-        position: absolute;
-        left: ${-tower.range + 25}px;
-        top: ${-tower.range + 25}px;
-        width: ${tower.range * 2}px;
-        height: ${tower.range * 2}px;
-        border: 2px dashed rgba(255,255,255,0.3);
-        border-radius: 50%;
-        opacity: 0;
-        transition: opacity 0.3s;
-    `;
-    towerEl.appendChild(rangeEl);
-    
-    // Клик на башню
-    towerEl.addEventListener('click', function(e) {
-        e.stopPropagation();
+    // Выбор башни на поле (по клику)
+    canvas.addEventListener('click', function(e) {
+        if (gameState.isWaveActive) return;
         
-        if (gameState.selectedTower === 'sell') {
-            // Продажа
-            gameState.energy += Math.floor(tower.cost * 0.7);
-            towerEl.remove();
-            updateUI();
-            addLog(`Башня продана за ${Math.floor(tower.cost * 0.7)} энергии`);
-            gameState.selectedTower = null;
-            document.querySelectorAll('.tower-option').forEach(opt => 
-                opt.classList.remove('selected'));
-        } else {
-            // Показать/скрыть радиус
-            const range = this.querySelector('.tower-range');
-            range.style.opacity = range.style.opacity === '1' ? '0' : '1';
-        }
-    });
-    
-    towersContainer.appendChild(towerEl);
-    
-    gameState.towers.push({
-        element: towerEl,
-        type: type,
-        x: x,
-        y: y,
-        lastShot: 0,
-        ...tower
-    });
-    
-    updateUI();
-    addLog(`${tower.name} башня построена!`);
-    
-    // Сброс выбора
-    gameState.selectedTower = null;
-    document.querySelectorAll('.tower-option').forEach(opt => 
-        opt.classList.remove('selected'));
-}
-
-// Начало волны
-function startWave() {
-    if (gameState.waveInProgress) return;
-    
-    gameState.waveInProgress = true;
-    gameState.enemyCount = 5 + gameState.wave * 2; // Увеличиваем количество врагов
-    addLog(`Волна ${gameState.wave} началась!`);
-    
-    spawnEnemies();
-}
-
-// Создание врагов
-function spawnEnemies() {
-    if (gameState.enemyCount <= 0) return;
-    
-    const enemyType = enemyTypes[Math.min(Math.floor(gameState.wave / 4), enemyTypes.length - 1)];
-    
-    const enemy = {
-        id: ++gameState.enemyId,
-        health: enemyType.health + gameState.wave * 5,
-        maxHealth: enemyType.health + gameState.wave * 5,
-        speed: enemyType.speed,
-        color: enemyType.color,
-        points: enemyType.points,
-        x: 50,
-        y: 50,
-        angle: 0,
-        distance: 0
-    };
-    
-    const enemyEl = document.createElement('div');
-    enemyEl.className = 'enemy';
-    enemyEl.dataset.id = enemy.id;
-    enemyEl.style.cssText = `
-        position: absolute;
-        left: ${enemy.x}px;
-        top: ${enemy.y}px;
-        width: 30px;
-        height: 30px;
-        background: ${enemy.color};
-        border-radius: 50%;
-        box-shadow: 0 0 15px ${enemy.color};
-        z-index: 15;
-        transform-origin: center;
-    `;
-    
-    // Индикатор здоровья
-    const healthBar = document.createElement('div');
-    healthBar.className = 'enemy-health';
-    healthBar.style.cssText = `
-        position: absolute;
-        top: -10px;
-        left: 0;
-        width: 100%;
-        height: 4px;
-        background: #333;
-        border-radius: 2px;
-        overflow: hidden;
-    `;
-    
-    const healthFill = document.createElement('div');
-    healthFill.className = 'health-fill';
-    healthFill.style.cssText = `
-        width: 100%;
-        height: 100%;
-        background: #00ff00;
-        transition: width 0.3s;
-    `;
-    
-    healthBar.appendChild(healthFill);
-    enemyEl.appendChild(healthBar);
-    
-    enemiesContainer.appendChild(enemyEl);
-    
-    enemy.element = enemyEl;
-    enemy.healthFill = healthFill;
-    gameState.enemies.push(enemy);
-    
-    gameState.enemyCount--;
-    
-    // Создаем следующего врага с задержкой
-    setTimeout(spawnEnemies, 1000 - Math.min(gameState.wave * 50, 800));
-}
-
-// Игровой цикл
-function gameLoop() {
-    if (!gameState.gameActive) return;
-    
-    // Движение врагов
-    gameState.enemies.forEach(enemy => {
-        if (!enemy.element) return;
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
         
-        // Спиральное движение к центру
-        enemy.angle += 0.02 * enemy.speed;
-        enemy.distance += 0.3 * enemy.speed;
-        
-        const centerX = document.querySelector('.game-area').offsetWidth / 2;
-        const centerY = document.querySelector('.game-area').offsetHeight / 2;
-        
-        enemy.x = centerX + Math.cos(enemy.angle) * (300 - enemy.distance);
-        enemy.y = centerY + Math.sin(enemy.angle) * (300 - enemy.distance);
-        
-        enemy.element.style.left = `${enemy.x - 15}px`;
-        enemy.element.style.top = `${enemy.y - 15}px`;
-        
-        // Проверка достижения кристалла
-        const distanceToCenter = Math.sqrt(
-            Math.pow(enemy.x - centerX, 2) + Math.pow(enemy.y - centerY, 2)
-        );
-        
-        if (distanceToCenter < 80) {
-            // Враг достиг кристалла
-            enemyReachedCrystal(enemy);
-        }
-    });
-    
-    // Стрельба башен
-    const now = Date.now();
-    gameState.towers.forEach(tower => {
-        if (now - tower.lastShot < tower.cooldown) return;
-        
-        const target = findTarget(tower);
-        if (target) {
-            shoot(tower, target);
-            tower.lastShot = now;
-        }
-    });
-    
-    // Движение снарядов
-    gameState.projectiles.forEach((projectile, index) => {
-        if (!projectile.element) return;
-        
-        const dx = projectile.targetX - projectile.x;
-        const dy = projectile.targetY - projectile.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        if (distance < 10) {
-            // Попадание
-            projectileHit(projectile);
-            projectile.element.remove();
-            gameState.projectiles.splice(index, 1);
-        } else {
-            // Движение
-            projectile.x += dx / distance * 8;
-            projectile.y += dy / distance * 8;
+        // Ищем башню по клику
+        for (const tower of gameState.towers) {
+            const dx = x - tower.x;
+            const dy = y - tower.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
             
-            projectile.element.style.left = `${projectile.x - 5}px`;
-            projectile.element.style.top = `${projectile.y - 5}px`;
-        }
-    });
-    
-    updateUI();
-    requestAnimationFrame(gameLoop);
-}
-
-// Поиск цели для башни
-function findTarget(tower) {
-    let closest = null;
-    let closestDistance = tower.range;
-    
-    gameState.enemies.forEach(enemy => {
-        const dx = enemy.x - tower.x;
-        const dy = enemy.y - tower.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        if (distance < closestDistance) {
-            closestDistance = distance;
-            closest = enemy;
-        }
-    });
-    
-    return closest;
-}
-
-// Выстрел
-function shoot(tower, target) {
-    const projectile = {
-        id: ++gameState.projectileId,
-        tower: tower,
-        target: target,
-        x: tower.x,
-        y: tower.y,
-        targetX: target.x,
-        targetY: target.y,
-        damage: tower.damage,
-        type: tower.type
-    };
-    
-    const projectileEl = document.createElement('div');
-    projectileEl.className = 'projectile';
-    projectileEl.dataset.type = tower.type;
-    projectileEl.style.cssText = `
-        position: absolute;
-        left: ${tower.x - 5}px;
-        top: ${tower.y - 5}px;
-        width: 10px;
-        height: 10px;
-        background: ${tower.color};
-        border-radius: 50%;
-        box-shadow: 0 0 10px ${tower.color};
-        z-index: 25;
-    `;
-    
-    projectilesContainer.appendChild(projectileEl);
-    projectile.element = projectileEl;
-    
-    gameState.projectiles.push(projectile);
-    
-    // Звук выстрела (опционально)
-    try {
-        document.getElementById('shootSound').currentTime = 0;
-        document.getElementById('shootSound').play();
-    } catch (e) {}
-}
-
-// Попадание снаряда
-function projectileHit(projectile) {
-    const enemy = projectile.target;
-    if (!enemy || !enemy.element) return;
-    
-    enemy.health -= projectile.damage;
-    
-    // Обновление полоски здоровья
-    if (enemy.healthFill) {
-        const percent = (enemy.health / enemy.maxHealth) * 100;
-        enemy.healthFill.style.width = `${percent}%`;
-        enemy.healthFill.style.background = percent > 50 ? '#00ff00' : 
-                                           percent > 25 ? '#ffff00' : '#ff0000';
-    }
-    
-    // Эффект попадания
-    const hitEffect = document.createElement('div');
-    hitEffect.style.cssText = `
-        position: absolute;
-        left: ${enemy.x - 20}px;
-        top: ${enemy.y - 20}px;
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background: radial-gradient(circle, ${projectile.tower.color}, transparent 70%);
-        opacity: 0.7;
-        z-index: 30;
-        animation: hitEffect 0.5s forwards;
-    `;
-    
-    enemiesContainer.appendChild(hitEffect);
-    setTimeout(() => hitEffect.remove(), 500);
-    
-    // Проверка смерти врага
-    if (enemy.health <= 0) {
-        enemyKilled(enemy);
-        
-        // Цепная молния для грозовой башни
-        if (projectile.type === 'storm' && projectile.tower.chain) {
-            chainLightning(enemy, projectile);
-        }
-    }
-}
-
-// Цепная молния
-function chainLightning(sourceEnemy, projectile) {
-    const chainCount = projectile.tower.chain;
-    let chains = 0;
-    
-    gameState.enemies.forEach(otherEnemy => {
-        if (chains >= chainCount) return;
-        if (otherEnemy === sourceEnemy || otherEnemy.health <= 0) return;
-        
-        const dx = otherEnemy.x - sourceEnemy.x;
-        const dy = otherEnemy.y - sourceEnemy.y;
-        const distance = Math.sqrt(dx * dx + dy * dy);
-        
-        if (distance < 100) { // Радиус цепной молнии
-            otherEnemy.health -= projectile.damage * 0.5;
-            chains++;
-            
-            // Линия молнии
-            drawLightning(sourceEnemy, otherEnemy);
-            
-            if (otherEnemy.health <= 0) {
-                enemyKilled(otherEnemy);
+            if (distance < 20) {
+                // Выбираем башню
+                gameState.selectedTower = tower;
+                updateUI();
+                showMessage(`Выбрана ${tower.type} башня (уровень ${tower.level}).`);
+                return;
             }
         }
+        
+        // Если кликнули не по башне, снимаем выделение
+        gameState.selectedTower = null;
+        updateUI();
     });
-}
-
-// Рисование молнии
-function drawLightning(from, to) {
-    const lightning = document.createElement('div');
-    lightning.style.cssText = `
-        position: absolute;
-        left: ${from.x}px;
-        top: ${from.y}px;
-        width: ${Math.sqrt(Math.pow(to.x - from.x, 2) + Math.pow(to.y - from.y, 2))}px;
-        height: 3px;
-        background: linear-gradient(90deg, transparent, #ffff00, #ffaa00, transparent);
-        transform-origin: left center;
-        transform: rotate(${Math.atan2(to.y - from.y, to.x - from.x)}rad);
-        z-index: 35;
-        animation: lightningFlash 0.3s forwards;
-    `;
     
-    enemiesContainer.appendChild(lightning);
-    setTimeout(() => lightning.remove(), 300);
-}
-
-// Враг убит
-function enemyKilled(enemy) {
-    gameState.energy += enemy.points;
-    gameState.enemiesKilled++;
-    
-    // Удаляем врага
-    if (enemy.element) {
-        enemy.element.remove();
-    }
-    
-    // Удаляем из массива
-    const index = gameState.enemies.indexOf(enemy);
-    if (index > -1) {
-        gameState.enemies.splice(index, 1);
-    }
-    
-    // Звук смерти (опционально)
-    try {
-        document.getElementById('enemyDieSound').currentTime = 0;
-        document.getElementById('enemyDieSound').play();
-    } catch (e) {}
-    
-    addLog(`Тень уничтожена! +${enemy.points} энергии`);
-    
-    // Проверка конца волны
-    if (gameState.enemies.length === 0 && gameState.enemyCount === 0) {
-        endWave();
-    }
-}
-
-// Враг достиг кристалла
-function enemyReachedCrystal(enemy) {
-    gameState.lives--;
-    
-    // Эффект повреждения кристалла
-    const crystal = document.getElementById('crystal');
-    crystal.style.animation = 'none';
-    setTimeout(() => {
-        crystal.style.animation = 'crystalPulse 3s infinite alternate';
-    }, 100);
-    
-    // Удаляем врага
-    if (enemy.element) {
-        enemy.element.remove();
-    }
-    
-    const index = gameState.enemies.indexOf(enemy);
-    if (index > -1) {
-        gameState.enemies.splice(index, 1);
-    }
-    
-    addLog("Кристалл поврежден! -1 жизнь");
-    
-    // Проверка поражения
-    if (gameState.lives <= 0) {
-        gameOver();
-        return;
-    }
-    
-    // Проверка конца волны
-    if (gameState.enemies.length === 0 && gameState.enemyCount === 0) {
-        endWave();
-    }
-}
-
-// Конец волны
-function endWave() {
-    gameState.waveInProgress = false;
-    gameState.wave++;
-    
-    if (gameState.wave > gameState.maxWaves) {
-        victory();
-        return;
-    }
-    
-    addLog(`Волна ${gameState.wave - 1} завершена! Подготовьтесь к следующей.`);
-    updateUI();
-}
-
-// Победа
-function victory() {
-    gameState.gameActive = false;
-    modalTitle.textContent = "ПОБЕДА!";
-    modalMessage.textContent = `Вы защитили кристалл от всех волн! Убито врагов: ${gameState.enemiesKilled}`;
-    restartGameBtn.style.display = 'block';
-    gameModal.style.display = 'flex';
-}
-
-// Поражение
-function gameOver() {
-    gameState.gameActive = false;
-    modalTitle.textContent = "ПОРАЖЕНИЕ";
-    modalMessage.textContent = `Кристалл разрушен! Вы достигли волны ${gameState.wave}`;
-    restartGameBtn.style.display = 'block';
-    gameModal.style.display = 'flex';
-}
-
-// Обновление интерфейса
-function updateUI() {
-    energyEl.textContent = gameState.energy;
-    livesEl.textContent = gameState.lives;
-    waveEl.textContent = `${gameState.wave}/${gameState.maxWaves}`;
-    
-    // Полоска энергии
-    const energyPercent = Math.min(gameState.energy / 200 * 100, 100);
-    energyFill.style.width = `${energyPercent}%`;
-    
-    // Сердечки
-    const hearts = document.querySelectorAll('.fa-heart');
-    hearts.forEach((heart, index) => {
-        if (index < Math.ceil(gameState.lives / 5)) {
-            heart.style.opacity = '1';
+    // Улучшение башни
+    function upgradeTower(tower) {
+        if (gameState.gold >= tower.upgradeCost) {
+            gameState.gold -= tower.upgradeCost;
+            
+            // Улучшаем характеристики
+            tower.level++;
+            tower.damage = Math.floor(tower.damage * 1.5);
+            tower.range = Math.floor(tower.range * 1.2);
+            tower.upgradeCost = Math.floor(tower.upgradeCost * 1.8);
+            
+            // Улучшаем скорострельность
+            tower.fireRate = Math.max(300, tower.fireRate * 0.9);
+            
+            updateUI();
+            showMessage(`Башня улучшена до уровня ${tower.level}!`);
         } else {
-            heart.style.opacity = '0.3';
+            showMessage(`Недостаточно золота для улучшения! Нужно ${tower.upgradeCost}.`);
         }
-    });
-    
-    // Кнопка начала волны
-    if (gameState.waveInProgress) {
-        startWaveBtn.innerHTML = '<i class="fas fa-pause"></i> Волна в процессе';
-        startWaveBtn.disabled = true;
-    } else {
-        startWaveBtn.innerHTML = '<i class="fas fa-play"></i> Начать волну';
-        startWaveBtn.disabled = false;
-    }
-}
-
-// Добавление сообщения в лог
-function addLog(message) {
-    const p = document.createElement('p');
-    p.textContent = `[${new Date().toLocaleTimeString().slice(0,5)}] ${message}`;
-    gameLog.prepend(p);
-    
-    // Ограничиваем количество сообщений
-    if (gameLog.children.length > 10) {
-        gameLog.removeChild(gameLog.lastChild);
-    }
-}
-
-// Показать модальное окно
-function showModal(title, message) {
-    modalTitle.textContent = title;
-    modalMessage.textContent = message;
-    restartGameBtn.style.display = 'none';
-    gameModal.style.display = 'flex';
-}
-
-// CSS анимации (добавляем динамически)
-const style = document.createElement('style');
-style.textContent = `
-    @keyframes hitEffect {
-        0% { transform: scale(1); opacity: 0.7; }
-        100% { transform: scale(2); opacity: 0; }
     }
     
-    @keyframes lightningFlash {
-        0% { opacity: 1; }
-        100% { opacity: 0; }
+    // Продажа башни
+    function sellTower(tower) {
+        // Находим клетку с этой башней
+        const cell = gameState.cells.find(c => c.tower === tower);
+        
+        if (cell) {
+            // Возвращаем часть стоимости
+            const sellPrice = Math.floor((tower.upgradeCost / 2) + (tower.level * 10));
+            gameState.gold += sellPrice;
+            
+            // Удаляем башню
+            const index = gameState.towers.indexOf(tower);
+            if (index > -1) {
+                gameState.towers.splice(index, 1);
+            }
+            
+            // Освобождаем клетку
+            cell.occupied = false;
+            cell.tower = null;
+            
+            // Снимаем выделение
+            gameState.selectedTower = null;
+            
+            updateUI();
+            showMessage(`Башня продана за ${sellPrice} золота.`);
+        }
     }
     
-    .tower:hover .tower-range {
-        opacity: 0.5 !important;
+    // Начало волны врагов
+    function startWave() {
+        gameState.isWaveActive = true;
+        gameState.enemiesSpawned = 0;
+        gameState.enemySpawnTimer = 0;
+        
+        startWaveButton.disabled = true;
+        startWaveButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Волна в процессе';
+        
+        showMessage(`Волна ${gameState.wave} началась! Уничтожьте всех врагов.`);
     }
     
-    .enemy {
-        transition: left 0.05s linear, top 0.05s linear;
+    // Завершение волны
+    function endWave() {
+        gameState.isWaveActive = false;
+        gameState.wave++;
+        
+        // Награда за завершение волны
+        const waveReward = 20 + gameState.wave * 5;
+        gameState.gold += waveReward;
+        
+        startWaveButton.disabled = false;
+        startWaveButton.innerHTML = '<i class="fas fa-play"></i> Начать волну';
+        
+        updateUI();
+        showMessage(`Волна завершена! Получено ${waveReward} золота. Готовьтесь к волне ${gameState.wave}.`);
     }
-`;
-document.head.appendChild(style);
-
-// Запуск игры
-initGame();
-gameLoop();
+    
+    // Конец игры
+    function endGame(isWin) {
+        gameState.isWaveActive = false;
+        
+        if (isWin) {
+            showMessage(`Поздравляем! Вы победили в игре! Уничтожено ${gameState.wave} волн врагов.`);
+        } else {
+            showMessage(`Игра окончена! Вы проиграли на волне ${gameState.wave}. Попробуйте еще раз!`);
+        }
+        
+        // Блокируем кнопку начала волны
+        startWaveButton.disabled = true;
+        startWaveButton.innerHTML = '<i class="fas fa-redo"></i> Игра завершена';
+        
+        // Предлагаем перезапустить игру
+        setTimeout(() => {
+            if (confirm(isWin ? 
+                "Вы победили! Хотите начать заново?" : 
+                "Игра окончена. Хотите попробовать еще раз?")) {
+                resetGame();
+            }
+        }, 1000);
+    }
+    
+    // Сброс игры
+    function resetGame() {
+        gameState.lives = 20;
+        gameState.gold = 100;
+        gameState.wave = 1;
+        gameState.isWaveActive = false;
+        gameState.towers = [];
+        gameState.enemies = [];
+        gameState.projectiles = [];
+        gameState.selectedTower = null;
+        
+        // Сбрасываем клетки
+        gameState.cells.forEach(cell => {
+            cell.occupied = false;
+            cell.tower = null;
+        });
+        
+        // Размечаем путь как занятый
+        const path = getPixelPath();
+        const pathWidth = gameState.cellSize * 1.5;
+        
+        gameState.cells.forEach(cell => {
+            const cellCenterX = cell.x + cell.width/2;
+            const cellCenterY = cell.y + cell.height/2;
+            
+            for (let i = 0; i < path.length - 1; i++) {
+                const start = path[i];
+                const end = path[i+1];
+                
+                const distance = pointToSegmentDistance(
+                    cellCenterX, cellCenterY, 
+                    start.x, start.y, 
+                    end.x, end.y
+                );
+                
+                if (distance < pathWidth) {
+                    cell.occupied = true;
+                    break;
+                }
+            }
+        });
+        
+        updateUI();
+        resetTowerSelection();
+        showMessage("Игра сброшена! Купите первую башню и начните волну.");
+    }
+    
+    // Игровой цикл
+    function gameLoop(timestamp) {
+        const deltaTime = timestamp - gameState.lastTime || 0;
+        gameState.lastTime = timestamp;
+        
+        // Обновляем состояние игры
+        if (gameState.isWaveActive) {
+            // Спавн врагов
+            if (gameState.enemiesSpawned < gameState.enemiesInWave + gameState.wave) {
+                gameState.enemySpawnTimer += deltaTime;
+                
+                if (gameState.enemySpawnTimer >= gameState.enemySpawnInterval) {
+                    gameState.enemies.push(createEnemy());
+                    gameState.enemiesSpawned++;
+                    gameState.enemySpawnTimer = 0;
+                    
+                    // Ускоряем спавн с каждой волной
+                    gameState.enemySpawnInterval = Math.max(500, 2000 - (gameState.wave * 100));
+                }
+            }
+            
+            // Обновляем врагов
+            updateEnemies(deltaTime);
+            
+            // Обновляем башни
+            updateTowers(deltaTime);
+            
+            // Обновляем снаряды
+            updateProjectiles();
+            
+            // Удаляем мертвых врагов
+            for (let i = gameState.enemies.length - 1; i >= 0; i--) {
+                if (gameState.enemies[i].health <= 0) {
+                    gameState.enemies.splice(i, 1);
+                }
+            }
+            
+            // Проверяем завершение волны
+            if (gameState.enemiesSpawned >= gameState.enemiesInWave + gameState.wave && 
+                gameState.enemies.length === 0) {
+                endWave();
+            }
+        }
+        
+        // Отрисовываем игру
+        draw();
+        
+        // Проверяем победу (дошли до 10 волны)
+        if (gameState.wave > 10) {
+            endGame(true);
+        }
+        
+        // Продолжаем игровой цикл
+        requestAnimationFrame(gameLoop);
+    }
+    
+    // Инициализация игры
+    initGameField();
+    updateUI();
+    showMessage("Добро пожаловать в Tower Defence! Выберите башню в магазине и установите её на поле.");
+    
+    // Запуск игрового цикла
+    requestAnimationFrame(gameLoop);
+});
