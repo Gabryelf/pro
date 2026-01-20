@@ -3,153 +3,96 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arcane Tower Defense | GitHub Pages</title>
+    <title>Tower Defence Game</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Exo+2:wght@300;400&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <!-- Шапка -->
-        <header>
-            <h1><i class="fas fa-gem"></i> ARCANE TOWER DEFENSE</h1>
-            <div class="game-info">
-                <div class="info-item">
-                    <span class="label">Энергия:</span>
-                    <span id="energy" class="value">100</span>
-                    <div class="energy-bar">
-                        <div class="energy-fill"></div>
-                    </div>
+    <div class="game-container">
+        <header class="game-header">
+            <h1><i class="fas fa-fort-awesome"></i> Простая Tower Defence</h1>
+            <div class="game-stats">
+                <div class="stat">
+                    <span class="stat-label">Жизни:</span>
+                    <span id="lives" class="stat-value">20</span>
                 </div>
-                <div class="info-item">
-                    <span class="label">Волна:</span>
-                    <span id="wave" class="value">1/10</span>
+                <div class="stat">
+                    <span class="stat-label">Золото:</span>
+                    <span id="gold" class="stat-value">100</span>
                 </div>
-                <div class="info-item">
-                    <span class="label">Жизни:</span>
-                    <span id="lives" class="value">20</span>
-                    <div class="hearts">
-                        <i class="fas fa-heart"></i><i class="fas fa-heart"></i><i class="fas fa-heart"></i>
-                    </div>
+                <div class="stat">
+                    <span class="stat-label">Волна:</span>
+                    <span id="wave" class="stat-value">1</span>
                 </div>
             </div>
         </header>
 
-        <div class="game-container">
-            <!-- Игровое поле -->
-            <div class="game-area">
-                <!-- Магический кристалл в центре -->
-                <div class="crystal" id="crystal">
-                    <div class="crystal-core"></div>
-                    <div class="crystal-glow"></div>
-                </div>
-
-                <!-- Пути для врагов (спираль) -->
-                <div class="path"></div>
-                
-                <!-- Здесь будут появляться башни (JS) -->
-                <div class="towers-container" id="towersContainer"></div>
-                
-                <!-- Здесь будут появляться враги (JS) -->
-                <div class="enemies-container" id="enemiesContainer"></div>
-                
-                <!-- Снаряды (JS) -->
-                <div class="projectiles-container" id="projectilesContainer"></div>
+        <div class="game-main">
+            <div class="game-board">
+                <canvas id="gameCanvas" width="800" height="600"></canvas>
+                <div class="path-overlay"></div>
             </div>
-
-            <!-- Панель управления -->
-            <div class="control-panel">
+            
+            <aside class="game-sidebar">
                 <div class="tower-shop">
-                    <h3><i class="fas fa-store"></i> Магазин башен</h3>
-                    <div class="tower-option" data-type="arcane" data-cost="30">
-                        <div class="tower-icon arcane-tower-icon">
-                            <i class="fas fa-hat-wizard"></i>
+                    <h2><i class="fas fa-store"></i> Магазин башен</h2>
+                    <div class="tower-list">
+                        <div class="tower-item" data-type="basic" data-cost="30">
+                            <div class="tower-icon basic-tower"></div>
+                            <div class="tower-info">
+                                <h3>Базовая башня</h3>
+                                <p>Урон: 5</p>
+                                <p>Дальность: 150px</p>
+                                <p class="tower-cost"><i class="fas fa-coins"></i> 30 золота</p>
+                            </div>
                         </div>
-                        <div class="tower-desc">
-                            <h4>Аркана</h4>
-                            <p>Урон: <span class="damage">15</span></p>
-                            <p>Радиус: <span class="radius">150px</span></p>
-                            <p class="cost"><i class="fas fa-bolt"></i> <span>30</span> энергии</p>
+                        <div class="tower-item" data-type="sniper" data-cost="80">
+                            <div class="tower-icon sniper-tower"></div>
+                            <div class="tower-info">
+                                <h3>Снайперская</h3>
+                                <p>Урон: 25</p>
+                                <p>Дальность: 300px</p>
+                                <p class="tower-cost"><i class="fas fa-coins"></i> 80 золота</p>
+                            </div>
                         </div>
-                    </div>
-                    
-                    <div class="tower-option" data-type="frost" data-cost="50">
-                        <div class="tower-icon frost-tower-icon">
-                            <i class="fas fa-snowflake"></i>
-                        </div>
-                        <div class="tower-desc">
-                            <h4>Ледяная</h4>
-                            <p>Урон: <span class="damage">10</span></p>
-                            <p>Замедление: <span class="slow">40%</span></p>
-                            <p class="cost"><i class="fas fa-bolt"></i> <span>50</span> энергии</p>
-                        </div>
-                    </div>
-                    
-                    <div class="tower-option" data-type="storm" data-cost="80">
-                        <div class="tower-icon storm-tower-icon">
-                            <i class="fas fa-bolt"></i>
-                        </div>
-                        <div class="tower-desc">
-                            <h4>Грозовая</h4>
-                            <p>Урон: <span class="damage">25</span></p>
-                            <p>Цепная молния: <span class="chain">3 цели</span></p>
-                            <p class="cost"><i class="fas fa-bolt"></i> <span>80</span> энергии</p>
+                        <div class="tower-item" data-type="splash" data-cost="60">
+                            <div class="tower-icon splash-tower"></div>
+                            <div class="tower-info">
+                                <h3>Облачная</h3>
+                                <p>Урон: 10</p>
+                                <p>Дальность: 120px</p>
+                                <p class="tower-cost"><i class="fas fa-coins"></i> 60 золота</p>
+                            </div>
                         </div>
                     </div>
                 </div>
                 
                 <div class="game-controls">
-                    <button id="startWave" class="btn start-btn">
+                    <button id="startWave" class="btn btn-primary">
                         <i class="fas fa-play"></i> Начать волну
                     </button>
-                    <button id="upgradeCrystal" class="btn upgrade-btn">
-                        <i class="fas fa-gem"></i> Улучшить кристалл (+50 энергии)
+                    <button id="upgradeTower" class="btn btn-secondary" disabled>
+                        <i class="fas fa-level-up-alt"></i> Улучшить башню
                     </button>
-                    <button id="sellTower" class="btn sell-btn">
+                    <button id="sellTower" class="btn btn-danger" disabled>
                         <i class="fas fa-coins"></i> Продать башню
                     </button>
                 </div>
                 
-                <div class="game-log" id="gameLog">
-                    <h3><i class="fas fa-scroll"></i> Лог событий</h3>
-                    <div class="log-content">
-                        <p>Защитите магический кристалл от теней!</p>
-                        <p>Постройте башни на пути врагов.</p>
-                        <p>Каждая башня стоит энергии.</p>
-                    </div>
+                <div class="game-info">
+                    <h3><i class="fas fa-info-circle"></i> Инструкция</h3>
+                    <p>1. Выберите башню в магазине</p>
+                    <p>2. Кликните на поле для установки</p>
+                    <p>3. Нажмите "Начать волну"</p>
+                    <p>4. Не дайте врагам дойти до конца!</p>
                 </div>
-            </div>
+            </aside>
         </div>
-
-        <!-- Подсказка -->
-        <div class="hint">
-            <p><i class="fas fa-lightbulb"></i> <strong>Подсказка:</strong> Нажмите на башню в магазине, затем кликните на игровом поле для установки</p>
-        </div>
-
-        <!-- Модальное окно (начало/конец игры) -->
-        <div class="modal" id="gameModal">
-            <div class="modal-content">
-                <h2 id="modalTitle">Arcane Defense</h2>
-                <p id="modalMessage">Защитите кристалл от 10 волн теней!</p>
-                <button id="startGame" class="btn modal-btn">Начать игру</button>
-                <button id="restartGame" class="btn modal-btn" style="display:none;">Играть снова</button>
-                <div class="instructions">
-                    <h3>Как играть:</h3>
-                    <ul>
-                        <li>Купите башни в магазине (клик на иконке)</li>
-                        <li>Установите башню на игровом поле (клик)</li>
-                        <li>Нажмите "Начать волну"</li>
-                        <li>Башни атакуют автоматически</li>
-                        <li>Улучшайте кристалл для больше энергии</li>
-                    </ul>
-                </div>
-            </div>
+        
+        <div class="game-messages" id="gameMessages">
+            <p>Добро пожаловать в Tower Defence! Купите первую башню и начните волну.</p>
         </div>
     </div>
-
-    <!-- Аудио элементы (опционально) -->
-    <audio id="shootSound" src="https://assets.mixkit.co/sfx/preview/mixkit-short-laser-gun-shot-1670.mp3" preload="auto"></audio>
-    <audio id="enemyDieSound" src="https://assets.mixkit.co/sfx/preview/mixkit-magic-spell-hit-2766.mp3" preload="auto"></audio>
 
     <script src="game.js"></script>
 </body>
