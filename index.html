@@ -3,153 +3,341 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tower Defence Game</title>
+    <title>Tower Defence | Защита Башни</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="game-container">
-        <header class="game-header">
-            <div class="header-left">
-                <h1><i class="fas fa-fort-awesome"></i> Башенная Оборона</h1>
-                <div class="wave-info">
-                    <span>Волна <span id="wave">1</span>/10</span>
-                    <div class="wave-progress">
-                        <div class="wave-progress-bar" id="waveProgress"></div>
+    <div class="container">
+        <!-- Верхняя панель -->
+        <header class="header">
+            <div class="logo">
+                <i class="fas fa-fort-awesome"></i>
+                <h1>Tower Defence</h1>
+                <span class="subtitle">Эпическая защита башни</span>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #e74c3c, #c0392b);">
+                        <i class="fas fa-heart"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">ЖИЗНИ</span>
+                        <span class="stat-value" id="lives">20</span>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #f1c40f, #f39c12);">
+                        <i class="fas fa-coins"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">ЗОЛОТО</span>
+                        <span class="stat-value" id="gold">100</span>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #3498db, #2980b9);">
+                        <i class="fas fa-wave-square"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">ВОЛНА</span>
+                        <span class="stat-value" id="wave">1/10</span>
+                    </div>
+                </div>
+                
+                <div class="stat-card">
+                    <div class="stat-icon" style="background: linear-gradient(135deg, #9b59b6, #8e44ad);">
+                        <i class="fas fa-trophy"></i>
+                    </div>
+                    <div class="stat-info">
+                        <span class="stat-label">РЕКОРД</span>
+                        <span class="stat-value" id="highscore">0</span>
                     </div>
                 </div>
             </div>
             
-            <div class="game-stats">
-                <div class="stat">
-                    <span class="stat-icon"><i class="fas fa-heart"></i></span>
-                    <span class="stat-label">Жизни:</span>
-                    <span id="lives" class="stat-value">20</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-icon"><i class="fas fa-coins"></i></span>
-                    <span class="stat-label">Золото:</span>
-                    <span id="gold" class="stat-value">100</span>
-                </div>
-                <div class="stat">
-                    <span class="stat-icon"><i class="fas fa-trophy"></i></span>
-                    <span class="stat-label">Рекорд:</span>
-                    <span id="highScore" class="stat-value">0</span>
-                </div>
+            <div class="game-controls">
+                <button id="startWave" class="control-btn start-btn">
+                    <i class="fas fa-play"></i>
+                    <span>СТАРТ ВОЛНЫ</span>
+                </button>
+                <button id="pauseGame" class="control-btn pause-btn">
+                    <i class="fas fa-pause"></i>
+                </button>
+                <button id="resetGame" class="control-btn reset-btn">
+                    <i class="fas fa-redo"></i>
+                </button>
             </div>
         </header>
 
-        <div class="game-main">
+        <!-- Основное игровое поле -->
+        <main class="game-area">
+            <!-- Игровое поле -->
             <div class="game-board">
-                <canvas id="gameCanvas" width="800" height="600"></canvas>
+                <canvas id="gameCanvas"></canvas>
                 <div class="game-overlay">
-                    <div class="selected-tower-info" id="selectedTowerInfo" style="display: none;">
-                        <h3>Информация о башне</h3>
-                        <div class="tower-stats">
-                            <p>Уровень: <span id="towerLevel">1</span></p>
-                            <p>Урон: <span id="towerDamage">5</span></p>
-                            <p>Дальность: <span id="towerRange">150</span></p>
-                            <p>Улучшение: <span id="towerUpgradeCost">25</span> <i class="fas fa-coins"></i></p>
+                    <div class="tower-info-panel" id="towerInfoPanel">
+                        <div class="tower-info-header">
+                            <h3><i class="fas fa-info-circle"></i> ИНФОРМАЦИЯ О БАШНЕ</h3>
+                            <button class="close-btn" id="closeTowerInfo">&times;</button>
                         </div>
+                        <div class="tower-info-content">
+                            <div class="tower-display">
+                                <div class="tower-preview" id="towerPreview"></div>
+                                <div class="tower-details">
+                                    <h4 id="towerName">БАЗОВАЯ БАШНЯ</h4>
+                                    <span class="tower-level">Уровень <span id="towerLevel">1</span></span>
+                                </div>
+                            </div>
+                            <div class="tower-stats">
+                                <div class="stat-row">
+                                    <span class="stat-label">Урон:</span>
+                                    <span class="stat-value" id="towerDamage">10</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Дальность:</span>
+                                    <span class="stat-value" id="towerRange">150px</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Скорость:</span>
+                                    <span class="stat-value" id="towerSpeed">Быстрая</span>
+                                </div>
+                                <div class="stat-row">
+                                    <span class="stat-label">Спецэффект:</span>
+                                    <span class="stat-value" id="towerEffect">Нет</span>
+                                </div>
+                            </div>
+                            <div class="tower-actions">
+                                <button id="upgradeTower" class="action-btn upgrade-btn">
+                                    <i class="fas fa-level-up-alt"></i>
+                                    УЛУЧШИТЬ (<span id="upgradeCost">25</span> <i class="fas fa-coins"></i>)
+                                </button>
+                                <button id="sellTower" class="action-btn sell-btn">
+                                    <i class="fas fa-coins"></i>
+                                    ПРОДАТЬ (<span id="sellValue">18</span> <i class="fas fa-coins"></i>)
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="wave-info-panel">
+                        <div class="wave-progress">
+                            <div class="wave-progress-bar" id="waveProgress"></div>
+                        </div>
+                        <div class="wave-stats">
+                            <span>Врагов осталось: <strong id="enemiesLeft">5</strong></span>
+                            <span>Убито: <strong id="enemiesKilled">0</strong></span>
+                        </div>
+                    </div>
+                    
+                    <div class="selection-mode" id="selectionMode">
+                        <i class="fas fa-mouse-pointer"></i>
+                        <span>Режим выбора: <strong id="selectionText">Выберите башню</strong></span>
                     </div>
                 </div>
             </div>
             
-            <aside class="game-sidebar">
-                <div class="tower-shop">
-                    <h2><i class="fas fa-store"></i> Магазин башен</h2>
-                    <div class="tower-list">
-                        <div class="tower-item" data-type="basic" data-cost="30">
-                            <div class="tower-icon">
-                                <div class="tower-shape basic-tower"></div>
-                            </div>
-                            <div class="tower-info">
-                                <h3><i class="fas fa-crosshairs"></i> Базовая</h3>
-                                <div class="tower-stats-small">
-                                    <span><i class="fas fa-bolt"></i> 5</span>
-                                    <span><i class="fas fa-ruler"></i> 150</span>
-                                    <span><i class="fas fa-tachometer-alt"></i> Быстрая</span>
+            <!-- Панель магазина и информации -->
+            <aside class="sidebar">
+                <!-- Магазин башен -->
+                <div class="shop-section">
+                    <div class="section-header">
+                        <i class="fas fa-store"></i>
+                        <h2>МАГАЗИН БАШЕН</h2>
+                    </div>
+                    
+                    <div class="tower-cards">
+                        <div class="tower-card" data-type="basic" data-cost="30">
+                            <div class="tower-card-header">
+                                <div class="tower-badge basic">
+                                    <i class="fas fa-crosshairs"></i>
                                 </div>
-                                <p class="tower-cost"><i class="fas fa-coins"></i> <span>30</span> золота</p>
+                                <h3>Базовая</h3>
+                                <span class="tower-price">30 <i class="fas fa-coins"></i></span>
                             </div>
+                            <div class="tower-card-body">
+                                <p>Быстрая атака по одной цели</p>
+                                <div class="tower-specs">
+                                    <div class="spec">
+                                        <i class="fas fa-bolt"></i>
+                                        <span>Урон: 5</span>
+                                    </div>
+                                    <div class="spec">
+                                        <i class="fas fa-ruler"></i>
+                                        <span>Дальность: 150px</span>
+                                    </div>
+                                    <div class="spec">
+                                        <i class="fas fa-tachometer-alt"></i>
+                                        <span>Скорость: Высокая</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button class="buy-btn basic-btn">ВЫБРАТЬ</button>
                         </div>
-                        <div class="tower-item" data-type="sniper" data-cost="80">
-                            <div class="tower-icon">
-                                <div class="tower-shape sniper-tower"></div>
-                            </div>
-                            <div class="tower-info">
-                                <h3><i class="fas fa-eye"></i> Снайпер</h3>
-                                <div class="tower-stats-small">
-                                    <span><i class="fas fa-bolt"></i> 25</span>
-                                    <span><i class="fas fa-ruler"></i> 300</span>
-                                    <span><i class="fas fa-tachometer-alt"></i> Медленная</span>
+                        
+                        <div class="tower-card" data-type="sniper" data-cost="80">
+                            <div class="tower-card-header">
+                                <div class="tower-badge sniper">
+                                    <i class="fas fa-eye"></i>
                                 </div>
-                                <p class="tower-cost"><i class="fas fa-coins"></i> <span>80</span> золота</p>
+                                <h3>Снайпер</h3>
+                                <span class="tower-price">80 <i class="fas fa-coins"></i></span>
                             </div>
+                            <div class="tower-card-body">
+                                <p>Высокий урон, медленная стрельба</p>
+                                <div class="tower-specs">
+                                    <div class="spec">
+                                        <i class="fas fa-bolt"></i>
+                                        <span>Урон: 25</span>
+                                    </div>
+                                    <div class="spec">
+                                        <i class="fas fa-ruler"></i>
+                                        <span>Дальность: 300px</span>
+                                    </div>
+                                    <div class="spec">
+                                        <i class="fas fa-tachometer-alt"></i>
+                                        <span>Скорость: Медленная</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button class="buy-btn sniper-btn">ВЫБРАТЬ</button>
                         </div>
-                        <div class="tower-item" data-type="splash" data-cost="60">
-                            <div class="tower-icon">
-                                <div class="tower-shape splash-tower"></div>
-                            </div>
-                            <div class="tower-info">
-                                <h3><i class="fas fa-bomb"></i> Облачная</h3>
-                                <div class="tower-stats-small">
-                                    <span><i class="fas fa-bolt"></i> 10</span>
-                                    <span><i class="fas fa-ruler"></i> 120</span>
-                                    <span><i class="fas fa-bullseye"></i> Область</span>
+                        
+                        <div class="tower-card" data-type="splash" data-cost="60">
+                            <div class="tower-card-header">
+                                <div class="tower-badge splash">
+                                    <i class="fas fa-bomb"></i>
                                 </div>
-                                <p class="tower-cost"><i class="fas fa-coins"></i> <span>60</span> золота</p>
+                                <h3>Облачная</h3>
+                                <span class="tower-price">60 <i class="fas fa-coins"></i></span>
                             </div>
+                            <div class="tower-card-body">
+                                <p>Урон по области, средняя скорость</p>
+                                <div class="tower-specs">
+                                    <div class="spec">
+                                        <i class="fas fa-bolt"></i>
+                                        <span>Урон: 10</span>
+                                    </div>
+                                    <div class="spec">
+                                        <i class="fas fa-ruler"></i>
+                                        <span>Дальность: 120px</span>
+                                    </div>
+                                    <div class="spec">
+                                        <i class="fas fa-bullseye"></i>
+                                        <span>Область: 60px</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <button class="buy-btn splash-btn">ВЫБРАТЬ</button>
                         </div>
                     </div>
                 </div>
                 
-                <div class="game-controls">
-                    <button id="startWave" class="btn btn-primary">
-                        <i class="fas fa-play"></i> Начать волну <span id="nextWaveTimer"></span>
-                    </button>
-                    <div class="control-group">
-                        <button id="upgradeTower" class="btn btn-secondary" disabled>
-                            <i class="fas fa-level-up-alt"></i> Улучшить (<span id="upgradeCost">0</span>)
-                        </button>
-                        <button id="sellTower" class="btn btn-danger" disabled>
-                            <i class="fas fa-coins"></i> Продать
-                        </button>
+                <!-- Информация о волне -->
+                <div class="wave-section">
+                    <div class="section-header">
+                        <i class="fas fa-ghost"></i>
+                        <h2>СЛЕДУЮЩАЯ ВОЛНА</h2>
+                    </div>
+                    
+                    <div class="enemy-preview">
+                        <div class="enemy-type">
+                            <div class="enemy-icon basic-enemy"></div>
+                            <div class="enemy-info">
+                                <span class="enemy-name">Быстрый враг</span>
+                                <span class="enemy-count">× <span id="basicEnemies">5</span></span>
+                            </div>
+                        </div>
+                        
+                        <div class="enemy-type">
+                            <div class="enemy-icon tough-enemy"></div>
+                            <div class="enemy-info">
+                                <span class="enemy-name">Бронированный</span>
+                                <span class="enemy-count">× <span id="toughEnemies">0</span></span>
+                            </div>
+                        </div>
+                        
+                        <div class="enemy-type">
+                            <div class="enemy-icon boss-enemy"></div>
+                            <div class="enemy-info">
+                                <span class="enemy-name">БОСС</span>
+                                <span class="enemy-count">× <span id="bossEnemies">0</span></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="wave-tip">
+                        <i class="fas fa-lightbulb"></i>
+                        <p>Сильные враги появляются с 3 волны, боссы - с 6 волны</p>
                     </div>
                 </div>
                 
-                <div class="enemy-preview">
-                    <h3><i class="fas fa-ghost"></i> Следующая волна</h3>
-                    <div class="enemy-list">
-                        <div class="enemy-preview-item">
-                            <div class="enemy-icon" style="background-color: #2ecc71;"></div>
-                            <span>×<span id="enemyCountBasic">5</span></span>
+                <!-- Инструкция -->
+                <div class="instructions-section">
+                    <div class="section-header">
+                        <i class="fas fa-graduation-cap"></i>
+                        <h2>КАК ИГРАТЬ</h2>
+                    </div>
+                    
+                    <div class="instructions">
+                        <div class="instruction-step">
+                            <span class="step-number">1</span>
+                            <p>Выберите башню в магазине</p>
                         </div>
-                        <div class="enemy-preview-item">
-                            <div class="enemy-icon" style="background-color: #f39c12;"></div>
-                            <span>×<span id="enemyCountTough">0</span></span>
+                        <div class="instruction-step">
+                            <span class="step-number">2</span>
+                            <p>Кликните на свободную клетку для установки</p>
                         </div>
-                        <div class="enemy-preview-item">
-                            <div class="enemy-icon" style="background-color: #e74c3c;"></div>
-                            <span>×<span id="enemyCountBoss">0</span></span>
+                        <div class="instruction-step">
+                            <span class="step-number">3</span>
+                            <p>Нажмите "СТАРТ ВОЛНЫ" для начала атаки</p>
+                        </div>
+                        <div class="instruction-step">
+                            <span class="step-number">4</span>
+                            <p>Кликните на башню для улучшения или продажи</p>
                         </div>
                     </div>
-                </div>
-                
-                <div class="game-info">
-                    <h3><i class="fas fa-info-circle"></i> Управление</h3>
-                    <div class="controls-list">
-                        <p><span class="key">ЛКМ</span> - Выбрать/поставить башню</p>
-                        <p><span class="key">Esc</span> - Отменить выбор</p>
-                        <p><span class="key">ПКМ</span> - Информация о башне</p>
+                    
+                    <div class="hotkeys">
+                        <h4>ГОРЯЧИЕ КЛАВИШИ:</h4>
+                        <div class="hotkey-group">
+                            <span class="hotkey">1</span>
+                            <span>Базовая башня</span>
+                        </div>
+                        <div class="hotkey-group">
+                            <span class="hotkey">2</span>
+                            <span>Снайпер</span>
+                        </div>
+                        <div class="hotkey-group">
+                            <span class="hotkey">3</span>
+                            <span>Облачная</span>
+                        </div>
+                        <div class="hotkey-group">
+                            <span class="hotkey">ESC</span>
+                            <span>Отмена выбора</span>
+                        </div>
+                        <div class="hotkey-group">
+                            <span class="hotkey">SPACE</span>
+                            <span>Старт волны</span>
+                        </div>
                     </div>
                 </div>
             </aside>
-        </div>
+        </main>
         
-        <div class="game-messages" id="gameMessages">
-            <p><i class="fas fa-info-circle"></i> Добро пожаловать! Выберите башню и начните первую волну.</p>
-        </div>
+        <!-- Сообщения игры -->
+        <footer class="game-footer">
+            <div class="message-area" id="messageArea">
+                <i class="fas fa-info-circle"></i>
+                <span>Добро пожаловать в Tower Defence! Выберите башню для начала игры.</span>
+            </div>
+        </footer>
     </div>
 
     <script src="game.js"></script>
