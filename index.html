@@ -4,345 +4,319 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cosmic Defender | Космическая защита</title>
-    <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Exo+2:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <!-- Компактный заголовок -->
+        <!-- Ultra Compact Header -->
         <header class="header">
-            <div class="logo">
-                <i class="fas fa-satellite"></i>
-                <h1>Cosmic Defender</h1>
-                <span class="subtitle">Космическая защита</span>
-            </div>
-            
-            <div class="stats">
-                <div class="stat-card">
-                    <div class="stat-icon" style="background: linear-gradient(135deg, #ff2e63, #d91e5a);">
-                        <i class="fas fa-shield-alt"></i>
-                    </div>
-                    <div class="stat-info">
-                        <span class="stat-label">ЩИТЫ</span>
-                        <span class="stat-value" id="lives">1500</span>
+            <div class="logo-section">
+                <div class="logo">
+                    <i class="fas fa-satellite-dish"></i>
+                    <div class="logo-text">
+                        <h1>Cosmic Defender</h1>
+                        <span class="subtitle">Космическая защита</span>
                     </div>
                 </div>
                 
-                <div class="stat-card">
-                    <div class="stat-icon" style="background: linear-gradient(135deg, #ffd700, #ffaa00);">
-                        <i class="fas fa-coins"></i>
+                <div class="mini-stats">
+                    <div class="mini-stat">
+                        <div class="mini-stat-icon shield">
+                            <i class="fas fa-shield-alt"></i>
+                        </div>
+                        <div class="mini-stat-info">
+                            <span class="mini-stat-label">ЩИТЫ</span>
+                            <span class="mini-stat-value" id="lives">1500</span>
+                        </div>
                     </div>
-                    <div class="stat-info">
-                        <span class="stat-label">КРЕДИТЫ</span>
-                        <span class="stat-value" id="gold">1000</span>
-                    </div>
-                </div>
-                
-                <div class="stat-card">
-                    <div class="stat-icon" style="background: linear-gradient(135deg, #00bfff, #0088cc);">
-                        <i class="fas fa-layer-group"></i>
-                    </div>
-                    <div class="stat-info">
-                        <span class="stat-label">СЕТ</span>
-                        <span class="stat-value" id="set">1/5</span>
-                    </div>
-                </div>
-                
-                <div class="stat-card">
-                    <div class="stat-icon" style="background: linear-gradient(135deg, #9d4edd, #7b3cad);">
-                        <i class="fas fa-trophy"></i>
-                    </div>
-                    <div class="stat-info">
-                        <span class="stat-label">РЕКОРД</span>
-                        <span class="stat-value" id="highscore">0</span>
+                    
+                    <div class="mini-stat">
+                        <div class="mini-stat-icon credit">
+                            <i class="fas fa-coins"></i>
+                        </div>
+                        <div class="mini-stat-info">
+                            <span class="mini-stat-label">КРЕДИТЫ</span>
+                            <span class="mini-stat-value" id="gold">1000</span>
+                        </div>
                     </div>
                 </div>
             </div>
             
-            <div class="game-controls">
-                <button id="startWave" class="control-btn start-btn">
+            <div class="header-middle">
+                <div class="wave-display">
+                    <div class="wave-info-compact">
+                        <span class="wave-label">СЕТ <span id="set">1</span>/5</span>
+                        <span class="wave-separator">•</span>
+                        <span class="wave-label">ВОЛНА <span id="currentWave">1</span></span>
+                    </div>
+                    <div class="wave-progress-mini">
+                        <div class="wave-progress-mini-fill" id="waveProgressMini"></div>
+                    </div>
+                </div>
+                
+                <div class="enemy-counter">
+                    <i class="fas fa-robot"></i>
+                    <span>ВРАГИ: <strong id="enemiesLeftMini">10</strong></span>
+                </div>
+            </div>
+            
+            <div class="header-controls">
+                <button id="startWave" class="control-btn-compact start-btn">
                     <i class="fas fa-play"></i>
-                    <span>СТАРТ ВОЛНЫ</span>
+                    <span>СТАРТ</span>
                 </button>
-                <button id="pauseGame" class="control-btn pause-btn">
+                <button id="pauseGame" class="control-btn-icon pause-btn">
                     <i class="fas fa-pause"></i>
                 </button>
-                <button id="infoBtn" class="control-btn info-btn">
-                    <i class="fas fa-info"></i>
+                <button id="fastForward" class="control-btn-icon speed-btn">
+                    <i class="fas fa-forward"></i>
                 </button>
-                <button id="resetGame" class="control-btn reset-btn">
-                    <i class="fas fa-redo"></i>
+                <button id="infoBtn" class="control-btn-icon info-btn">
+                    <i class="fas fa-info"></i>
                 </button>
             </div>
         </header>
 
-        <!-- Игровая область -->
+        <!-- Main Game Area -->
         <main class="game-area">
-            <!-- Игровое поле -->
+            <!-- Game Board -->
             <div class="game-board">
                 <canvas id="gameCanvas"></canvas>
-                <div class="game-overlay">
-                    <div class="selection-mode" id="selectionMode">
-                        <i class="fas fa-mouse-pointer"></i>
-                        <span>Режим: <strong id="selectionText">Выберите станцию</strong></span>
+                
+                <!-- Floating Wave Info -->
+                <div class="floating-wave-info">
+                    <div class="floating-enemy-counter">
+                        <i class="fas fa-fighter-jet"></i>
+                        <span id="floatingEnemies">10</span>
                     </div>
-                    
-                    <div class="wave-info">
-                        <div class="wave-progress">
-                            <div class="wave-progress-bar" id="waveProgress"></div>
-                        </div>
-                        <div class="wave-stats">
-                            <span>Врагов: <strong id="enemiesLeft">10</strong></span>
-                            <span>Убито: <strong id="enemiesKilled">0</strong></span>
-                        </div>
+                    <div class="floating-kill-counter">
+                        <i class="fas fa-skull"></i>
+                        <span id="floatingKills">0</span>
                     </div>
-                    
-                    <div class="tower-info-panel" id="towerInfoPanel">
-                        <div class="tower-info-header">
-                            <h3><i class="fas fa-info-circle"></i> ИНФОРМАЦИЯ О СТАНЦИИ</h3>
-                            <button class="close-btn" id="closeTowerInfo">&times;</button>
+                </div>
+                
+                <!-- Selection Indicator -->
+                <div class="selection-indicator" id="selectionIndicator">
+                    <i class="fas fa-crosshairs"></i>
+                    <span id="selectionText">Выберите станцию</span>
+                </div>
+                
+                <!-- Tower Info Panel -->
+                <div class="tower-info-compact" id="towerInfoPanel">
+                    <div class="tower-info-header">
+                        <h4><i class="fas fa-satellite"></i> <span id="towerName">ЛАЗЕРНАЯ СТАНЦИЯ</span></h4>
+                        <button class="close-btn" id="closeTowerInfo">&times;</button>
+                    </div>
+                    <div class="tower-info-body">
+                        <div class="tower-stats-mini">
+                            <div class="tower-stat-mini">
+                                <span class="stat-label-mini">Уровень</span>
+                                <span class="stat-value-mini" id="towerLevel">1</span>
+                            </div>
+                            <div class="tower-stat-mini">
+                                <span class="stat-label-mini">Урон</span>
+                                <span class="stat-value-mini" id="towerDamage">25</span>
+                            </div>
+                            <div class="tower-stat-mini">
+                                <span class="stat-label-mini">Дальность</span>
+                                <span class="stat-value-mini" id="towerRange">180</span>
+                            </div>
+                            <div class="tower-stat-mini">
+                                <span class="stat-label-mini">Скорость</span>
+                                <span class="stat-value-mini" id="towerSpeed">1.2s</span>
+                            </div>
                         </div>
-                        <div class="tower-info-content">
-                            <div class="tower-display">
-                                <div class="tower-preview" id="towerPreview"></div>
-                                <div class="tower-details">
-                                    <h4 id="towerName">ЛАЗЕРНАЯ СТАНЦИЯ</h4>
-                                    <span class="tower-level">Уровень <span id="towerLevel">1</span></span>
-                                </div>
-                            </div>
-                            <div class="tower-stats">
-                                <div class="stat-row">
-                                    <span class="stat-label">Урон:</span>
-                                    <span class="stat-value" id="towerDamage">25</span>
-                                </div>
-                                <div class="stat-row">
-                                    <span class="stat-label">Дальность:</span>
-                                    <span class="stat-value" id="towerRange">180px</span>
-                                </div>
-                                <div class="stat-row">
-                                    <span class="stat-label">Скорость:</span>
-                                    <span class="stat-value" id="towerSpeed">1.2s</span>
-                                </div>
-                                <div class="stat-row">
-                                    <span class="stat-label">Спецэффект:</span>
-                                    <span class="stat-value" id="towerEffect">Нет</span>
-                                </div>
-                            </div>
-                            <div class="tower-upgrade-tree" id="upgradeTree">
-                                <div class="upgrade-path">
-                                    <h5>Улучшения:</h5>
-                                    <div class="upgrade-options">
-                                        <button class="upgrade-option" data-path="damage">Урон +10</button>
-                                        <button class="upgrade-option" data-path="range">Дальность +20</button>
-                                        <button class="upgrade-option" data-path="speed">Скорость +10%</button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="tower-actions">
-                                <button id="upgradeTower" class="action-btn upgrade-btn">
-                                    <i class="fas fa-level-up-alt"></i>
-                                    УЛУЧШИТЬ (<span id="upgradeCost">150</span> <i class="fas fa-coins"></i>)
-                                </button>
-                                <button id="sellTower" class="action-btn sell-btn">
-                                    <i class="fas fa-coins"></i>
-                                    ПРОДАТЬ (<span id="sellValue">120</span> <i class="fas fa-coins"></i>)
-                                </button>
-                            </div>
+                        <div class="tower-actions-mini">
+                            <button id="upgradeTower" class="action-btn-mini upgrade-btn">
+                                <i class="fas fa-arrow-up"></i>
+                                <span>Улучшить</span>
+                                <span class="cost" id="upgradeCost">150</span>
+                            </button>
+                            <button id="sellTower" class="action-btn-mini sell-btn">
+                                <i class="fas fa-coins"></i>
+                                <span>Продать</span>
+                                <span class="cost" id="sellValue">120</span>
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Компактная боковая панель -->
-            <aside class="sidebar">
-                <!-- Магазин станций -->
-                <div class="shop-section">
-                    <div class="section-header">
-                        <i class="fas fa-satellite-dish"></i>
-                        <h2>СТАНЦИИ ЗАЩИТЫ</h2>
+            <!-- Ultra Compact Sidebar -->
+            <aside class="sidebar-compact">
+                <!-- Stations Shop -->
+                <div class="shop-section-compact">
+                    <div class="section-header-mini">
+                        <i class="fas fa-rocket"></i>
+                        <h3>СТАНЦИИ</h3>
                     </div>
                     
-                    <div class="tower-cards">
-                        <div class="tower-card" data-type="laser" data-cost="200">
-                            <div class="tower-card-header">
-                                <div class="tower-badge laser">
-                                    <i class="fas fa-bolt"></i>
-                                </div>
-                                <h3>Лазерная</h3>
-                                <span class="tower-price">200 <i class="fas fa-coins"></i></span>
+                    <div class="stations-grid">
+                        <div class="station-item" data-type="laser" data-cost="200">
+                            <div class="station-icon laser-station">
+                                <i class="fas fa-bolt"></i>
                             </div>
-                            <div class="tower-card-body">
-                                <p>Быстрая атака по одной цели</p>
-                                <div class="tower-specs">
-                                    <div class="spec">
-                                        <i class="fas fa-bolt"></i>
-                                        <span>Урон: 25</span>
-                                    </div>
-                                    <div class="spec">
-                                        <i class="fas fa-ruler"></i>
-                                        <span>Дальность: 180px</span>
-                                    </div>
-                                    <div class="spec">
-                                        <i class="fas fa-tachometer-alt"></i>
-                                        <span>Скорость: 1.2s</span>
-                                    </div>
-                                </div>
+                            <div class="station-info">
+                                <span class="station-name">Лазерная</span>
+                                <span class="station-cost">200 <i class="fas fa-coins"></i></span>
                             </div>
-                            <button class="buy-btn laser-btn">ВЫБРАТЬ</button>
+                            <div class="station-stats">
+                                <span class="stat-tag">⚡ 25 урон</span>
+                                <span class="stat-tag">📡 180</span>
+                            </div>
                         </div>
                         
-                        <div class="tower-card" data-type="plasma" data-cost="350">
-                            <div class="tower-card-header">
-                                <div class="tower-badge plasma">
-                                    <i class="fas fa-atom"></i>
-                                </div>
-                                <h3>Плазменная</h3>
-                                <span class="tower-price">350 <i class="fas fa-coins"></i></span>
+                        <div class="station-item" data-type="plasma" data-cost="350">
+                            <div class="station-icon plasma-station">
+                                <i class="fas fa-atom"></i>
                             </div>
-                            <div class="tower-card-body">
-                                <p>Урон по области, замедление</p>
-                                <div class="tower-specs">
-                                    <div class="spec">
-                                        <i class="fas fa-bolt"></i>
-                                        <span>Урон: 40</span>
-                                    </div>
-                                    <div class="spec">
-                                        <i class="fas fa-ruler"></i>
-                                        <span>Дальность: 120px</span>
-                                    </div>
-                                    <div class="spec">
-                                        <i class="fas fa-bullseye"></i>
-                                        <span>Радиус: 60px</span>
-                                    </div>
-                                </div>
+                            <div class="station-info">
+                                <span class="station-name">Плазменная</span>
+                                <span class="station-cost">350 <i class="fas fa-coins"></i></span>
                             </div>
-                            <button class="buy-btn plasma-btn">ВЫБРАТЬ</button>
+                            <div class="station-stats">
+                                <span class="stat-tag">💥 40 урон</span>
+                                <span class="stat-tag">🌀 радиус</span>
+                            </div>
                         </div>
                         
-                        <div class="tower-card" data-type="railgun" data-cost="500">
-                            <div class="tower-card-header">
-                                <div class="tower-badge railgun">
-                                    <i class="fas fa-crosshairs"></i>
-                                </div>
-                                <h3>Рейлган</h3>
-                                <span class="tower-price">500 <i class="fas fa-coins"></i></span>
+                        <div class="station-item" data-type="railgun" data-cost="500">
+                            <div class="station-icon railgun-station">
+                                <i class="fas fa-crosshairs"></i>
                             </div>
-                            <div class="tower-card-body">
-                                <p>Бронебойный урон, большая дальность</p>
-                                <div class="tower-specs">
-                                    <div class="spec">
-                                        <i class="fas fa-bolt"></i>
-                                        <span>Урон: 80</span>
-                                    </div>
-                                    <div class="spec">
-                                        <i class="fas fa-ruler"></i>
-                                        <span>Дальность: 300px</span>
-                                    </div>
-                                    <div class="spec">
-                                        <i class="fas fa-shield-alt"></i>
-                                        <span>Пробивание: 50%</span>
-                                    </div>
-                                </div>
+                            <div class="station-info">
+                                <span class="station-name">Рейлган</span>
+                                <span class="station-cost">500 <i class="fas fa-coins"></i></span>
                             </div>
-                            <button class="buy-btn railgun-btn">ВЫБРАТЬ</button>
+                            <div class="station-stats">
+                                <span class="stat-tag">💫 80 урон</span>
+                                <span class="stat-tag">🛡️ бронебой</span>
+                            </div>
                         </div>
                         
-                        <div class="tower-card" data-type="tesla" data-cost="300">
-                            <div class="tower-card-header">
-                                <div class="tower-badge tesla">
-                                    <i class="fas fa-bolt-lightning"></i>
-                                </div>
-                                <h3>Тесла</h3>
-                                <span class="tower-price">300 <i class="fas fa-coins"></i></span>
+                        <div class="station-item" data-type="tesla" data-cost="300">
+                            <div class="station-icon tesla-station">
+                                <i class="fas fa-bolt-lightning"></i>
                             </div>
-                            <div class="tower-card-body">
-                                <p>Цепная атака по нескольким целям</p>
-                                <div class="tower-specs">
-                                    <div class="spec">
-                                        <i class="fas fa-bolt"></i>
-                                        <span>Урон: 15</span>
-                                    </div>
-                                    <div class="spec">
-                                        <i class="fas fa-ruler"></i>
-                                        <span>Дальность: 150px</span>
-                                    </div>
-                                    <div class="spec">
-                                        <i class="fas fa-link"></i>
-                                        <span>Цепь: 3 цели</span>
-                                    </div>
-                                </div>
+                            <div class="station-info">
+                                <span class="station-name">Тесла</span>
+                                <span class="station-cost">300 <i class="fas fa-coins"></i></span>
                             </div>
-                            <button class="buy-btn tesla-btn">ВЫБРАТЬ</button>
+                            <div class="station-stats">
+                                <span class="stat-tag">⚡ 15 урон</span>
+                                <span class="stat-tag">🔗 цепная</span>
+                            </div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Статус базы -->
-                <div class="base-section">
-                    <div class="section-header">
+                <!-- Base Info -->
+                <div class="base-section-mini">
+                    <div class="section-header-mini">
                         <i class="fas fa-space-station"></i>
-                        <h2>КОМАНДНЫЙ ЦЕНТР</h2>
+                        <h3>БАЗА</h3>
                     </div>
                     
-                    <div class="base-stats">
-                        <div class="base-stat">
-                            <div class="base-stat-label">Уровень</div>
-                            <div class="base-stat-value" id="baseLevel">1</div>
+                    <div class="base-info-compact">
+                        <div class="base-level-display">
+                            <span class="base-level-label">Уровень</span>
+                            <span class="base-level-value" id="baseLevel">1</span>
                         </div>
-                        <div class="base-stat">
-                            <div class="base-stat-label">Бонус атаки</div>
-                            <div class="base-stat-value" id="baseAttack">+0%</div>
-                        </div>
-                        <div class="base-stat">
-                            <div class="base-stat-label">Прирост/волна</div>
-                            <div class="base-stat-value" id="baseIncome">+50</div>
-                        </div>
-                        <div class="base-stat">
-                            <div class="base-stat-label">Дроны</div>
-                            <div class="base-stat-value" id="baseDrones">0/3</div>
-                        </div>
+                        <button class="base-upgrade-btn-compact" id="upgradeBase">
+                            <i class="fas fa-arrow-up"></i>
+                            <span>Улучшить</span>
+                            <span class="cost" id="baseUpgradeCost">500</span>
+                        </button>
                     </div>
                     
-                    <button id="upgradeBase" class="base-upgrade-btn">
-                        УЛУЧШИТЬ ЦЕНТР (<span id="baseUpgradeCost">500</span> <i class="fas fa-coins"></i>)
-                    </button>
+                    <div class="base-bonuses">
+                        <div class="bonus-item">
+                            <i class="fas fa-bolt"></i>
+                            <span>Атака: <strong id="baseAttack">+0%</strong></span>
+                        </div>
+                        <div class="bonus-item">
+                            <i class="fas fa-coins"></i>
+                            <span>Доход: <strong id="baseIncome">+50</strong></span>
+                        </div>
+                        <div class="bonus-item">
+                            <i class="fas fa-map-marker-alt"></i>
+                            <span>Места: <strong id="availableSlots">5/12</strong></span>
+                        </div>
+                    </div>
                 </div>
                 
-                <!-- Предпросмотр волны -->
-                <div class="wave-preview-section">
-                    <div class="section-header">
-                        <i class="fas fa-radar"></i>
-                        <h2>СЛЕДУЮЩАЯ ВОЛНА</h2>
+                <!-- Next Wave Preview -->
+                <div class="wave-preview-mini">
+                    <div class="section-header-mini">
+                        <i class="fas fa-wave-square"></i>
+                        <h3>ВОЛНА <span id="currentWaveSidebar">1</span></h3>
                     </div>
                     
-                    <div class="enemy-preview" id="wavePreview">
-                        <!-- Динамически заполняется -->
+                    <div class="enemy-preview-mini" id="wavePreview">
+                        <!-- Динамический контент -->
                     </div>
                 </div>
             </aside>
         </main>
         
-        <!-- Сообщения игры -->
-        <footer class="game-footer">
-            <div class="message-area" id="messageArea">
+        <!-- Minimal Footer -->
+        <footer class="game-footer-mini">
+            <div class="message-bar" id="messageBar">
                 <i class="fas fa-info-circle"></i>
-                <span id="messageText">Добро пожаловать в Cosmic Defender! Выберите станцию для начала.</span>
+                <span id="messageText">Выберите станцию для установки на поле</span>
+            </div>
+            <div class="high-score">
+                <i class="fas fa-trophy"></i>
+                <span>РЕКОРД: <strong id="highscore">0</strong></span>
             </div>
         </footer>
     </div>
 
-    <!-- Модальное окно информации -->
+    <!-- Info Modal -->
     <div class="modal-overlay" id="infoModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2 class="modal-title"><i class="fas fa-book"></i> РУКОВОДСТВО ПО ИГРЕ</h2>
+                <h2 class="modal-title"><i class="fas fa-graduation-cap"></i> ОБУЧЕНИЕ</h2>
                 <button class="close-modal" id="closeModal">&times;</button>
             </div>
             <div class="modal-body" id="modalBody">
-                <!-- Контент будет добавлен через JavaScript -->
+                <!-- Content loaded via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Modal -->
+    <div class="modal-overlay" id="gameOverModal" style="display: none;">
+        <div class="modal-content game-over-modal">
+            <div class="game-over-header defeat" id="gameOverHeader">
+                <h2>ПОРАЖЕНИЕ</h2>
+                <p>База уничтожена</p>
+            </div>
+            <div class="game-over-body">
+                <div class="game-over-stats">
+                    <div class="stat">
+                        <span class="stat-label">Достигнут сет</span>
+                        <span class="stat-value" id="gameOverSet">1</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Волна</span>
+                        <span class="stat-value" id="gameOverWave">1</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Кредиты</span>
+                        <span class="stat-value" id="gameOverCredits">1000</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Врагов убито</span>
+                        <span class="stat-value" id="gameOverKills">0</span>
+                    </div>
+                </div>
+                <button id="restartGame" class="restart-btn">
+                    <i class="fas fa-redo"></i>
+                    НОВАЯ ИГРА
+                </button>
             </div>
         </div>
     </div>
