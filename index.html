@@ -76,6 +76,9 @@
                 <button id="infoBtn" class="control-btn-icon info-btn">
                     <i class="fas fa-info"></i>
                 </button>
+                <button id="shopBtn" class="control-btn-icon shop-btn">
+                    <i class="fas fa-shopping-cart"></i>
+                </button>
             </div>
         </header>
 
@@ -143,6 +146,11 @@
                     </div>
                 </div>
             </div>
+
+            <div class="drones-counter" id="dronesCounter">
+                <i class="fas fa-robot"></i>
+                <span>Дроны: <strong id="dronesCount">0</strong>/<span id="maxDrones">0</span></span>
+            </div>
             
             <!-- Ultra Compact Sidebar -->
             <aside class="sidebar-compact">
@@ -207,6 +215,36 @@
                             <div class="station-stats">
                                 <span class="stat-tag">⚡ 15 урон</span>
                                 <span class="stat-tag">🔗 цепная</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Новый магазин -->
+                <div class="modal-overlay" id="shopModal">
+                    <div class="modal-content shop-modal">
+                        <div class="modal-header">
+                            <h2 class="modal-title"><i class="fas fa-shopping-cart"></i> МАГАЗИН</h2>
+                            <button class="close-modal" id="closeShop">&times;</button>
+                        </div>
+                        <div class="modal-body shop-body">
+                            <div class="shop-currency">
+                                <div class="currency-display">
+                                    <i class="fas fa-gem" style="color: #9d4edd;"></i>
+                                    <span class="currency-label">КРИСТАЛЛЫ:</span>
+                                    <span class="currency-value" id="crystalsAmount">0</span>
+                                </div>
+                            </div>
+                            
+                            <div class="shop-tabs">
+                                <button class="shop-tab active" data-tab="weapons">Оружие</button>
+                                <button class="shop-tab" data-tab="satellites">Спутники</button>
+                                <button class="shop-tab" data-tab="harvesters">Харвестеры</button>
+                                <button class="shop-tab" data-tab="cosmetics">Косметика</button>
+                            </div>
+                            
+                            <div class="shop-items" id="shopItems">
+                                <!-- Динамически загружается -->
                             </div>
                         </div>
                     </div>
