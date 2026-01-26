@@ -2,83 +2,66 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cosmic Defender | Космическая защита</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cosmic Defender</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Exo+2:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <!-- Ultra Compact Header -->
+        <!-- Compact Header -->
         <header class="header">
             <div class="logo-section">
                 <div class="logo">
                     <i class="fas fa-satellite-dish"></i>
-                    <div class="logo-text">
-                        <h1>Cosmic Defender</h1>
-                        <span class="subtitle">Космическая защита</span>
-                    </div>
+                    <h1>CD</h1>
                 </div>
                 
-                <div class="mini-stats">
-                    <div class="mini-stat">
-                        <div class="mini-stat-icon shield">
-                            <i class="fas fa-shield-alt"></i>
-                        </div>
-                        <div class="mini-stat-info">
-                            <span class="mini-stat-label">ЩИТЫ</span>
-                            <span class="mini-stat-value" id="lives">1500</span>
-                        </div>
+                <div class="game-state-compact">
+                    <div class="state-item">
+                        <i class="fas fa-shield-alt"></i>
+                        <span id="lives">1500</span>
                     </div>
-                    
-                    <div class="mini-stat">
-                        <div class="mini-stat-icon credit">
-                            <i class="fas fa-coins"></i>
-                        </div>
-                        <div class="mini-stat-info">
-                            <span class="mini-stat-label">КРЕДИТЫ</span>
-                            <span class="mini-stat-value" id="gold">1000</span>
-                        </div>
+                    <div class="state-item">
+                        <i class="fas fa-coins"></i>
+                        <span id="gold">1000</span>
+                    </div>
+                    <div class="state-item">
+                        <i class="fas fa-gem"></i>
+                        <span id="crystalsCount">0</span>
+                    </div>
+                    <div class="state-item">
+                        <i class="fas fa-robot"></i>
+                        <span id="enemiesLeftMini">10</span>
                     </div>
                 </div>
             </div>
             
-            <div class="header-middle">
-                <div class="wave-display">
-                    <div class="wave-info-compact">
-                        <span class="wave-label">СЕТ <span id="set">1</span>/5</span>
-                        <span class="wave-separator">•</span>
-                        <span class="wave-label">ВОЛНА <span id="currentWave">1</span></span>
-                    </div>
-                    <div class="wave-progress-mini">
-                        <div class="wave-progress-mini-fill" id="waveProgressMini"></div>
-                    </div>
+            <div class="wave-controls">
+                <div class="wave-info">
+                    <span>СЕТ <strong id="set">1</strong>/5</span>
+                    <span class="separator">|</span>
+                    <span>ВОЛНА <strong id="currentWave">1</strong></span>
                 </div>
-                
-                <div class="enemy-counter">
-                    <i class="fas fa-robot"></i>
-                    <span>ВРАГИ: <strong id="enemiesLeftMini">10</strong></span>
+                <div class="controls">
+                    <button id="startWave" class="control-btn start-btn">
+                        <i class="fas fa-play"></i>
+                        <span class="btn-text">СТАРТ</span>
+                    </button>
+                    <button id="pauseGame" class="control-btn-icon pause-btn">
+                        <i class="fas fa-pause"></i>
+                    </button>
+                    <button id="fastForward" class="control-btn-icon speed-btn">
+                        <i class="fas fa-forward"></i>
+                    </button>
+                    <button id="shopBtn" class="control-btn-icon shop-btn">
+                        <i class="fas fa-shopping-cart"></i>
+                    </button>
+                    <button id="infoBtn" class="control-btn-icon info-btn">
+                        <i class="fas fa-info"></i>
+                    </button>
                 </div>
-            </div>
-            
-            <div class="header-controls">
-                <button id="startWave" class="control-btn-compact start-btn">
-                    <i class="fas fa-play"></i>
-                    <span>СТАРТ</span>
-                </button>
-                <button id="pauseGame" class="control-btn-icon pause-btn">
-                    <i class="fas fa-pause"></i>
-                </button>
-                <button id="fastForward" class="control-btn-icon speed-btn">
-                    <i class="fas fa-forward"></i>
-                </button>
-                <button id="infoBtn" class="control-btn-icon info-btn">
-                    <i class="fas fa-info"></i>
-                </button>
-                <button id="shopBtn" class="control-btn-icon shop-btn">
-                    <i class="fas fa-shopping-cart"></i>
-                </button>
             </div>
         </header>
 
@@ -87,24 +70,6 @@
             <!-- Game Board -->
             <div class="game-board">
                 <canvas id="gameCanvas"></canvas>
-                
-                <!-- Floating Wave Info - Перемещен в левый верхний угол -->
-                <div class="floating-wave-info">
-                    <div class="floating-wave-stage">
-                        <i class="fas fa-satellite"></i>
-                        <span>СЕТ <strong id="floatingSet">1</strong></span>
-                        <span class="wave-separator">•</span>
-                        <span>ВОЛНА <strong id="floatingWave">1</strong></span>
-                    </div>
-                    <div class="floating-enemy-counter">
-                        <i class="fas fa-fighter-jet"></i>
-                        <span>ВРАГИ: <strong id="floatingEnemies">10</strong></span>
-                    </div>
-                    <div class="floating-kill-counter">
-                        <i class="fas fa-skull"></i>
-                        <span>УБИТО: <strong id="floatingKills">0</strong></span>
-                    </div>
-                </div>
                 
                 <!-- Selection Indicator -->
                 <div class="selection-indicator" id="selectionIndicator">
@@ -163,96 +128,10 @@
                     </div>
                     
                     <div class="stations-grid" id="stationsGrid">
-                        <div class="station-item" data-type="laser" data-cost="200">
-                            <div class="station-icon laser-station">
-                                <i class="fas fa-bolt"></i>
-                            </div>
-                            <div class="station-info">
-                                <span class="station-name">Лазерная</span>
-                                <span class="station-cost">200 <i class="fas fa-coins"></i></span>
-                            </div>
-                            <div class="station-stats">
-                                <span class="stat-tag">⚡ 25 урон</span>
-                                <span class="stat-tag">📡 180</span>
-                            </div>
-                        </div>
-                        
-                        <div class="station-item" data-type="plasma" data-cost="350">
-                            <div class="station-icon plasma-station">
-                                <i class="fas fa-atom"></i>
-                            </div>
-                            <div class="station-info">
-                                <span class="station-name">Плазменная</span>
-                                <span class="station-cost">350 <i class="fas fa-coins"></i></span>
-                            </div>
-                            <div class="station-stats">
-                                <span class="stat-tag">💥 40 урон</span>
-                                <span class="stat-tag">🌀 радиус</span>
-                            </div>
-                        </div>
-                        
-                        <div class="station-item" data-type="railgun" data-cost="500">
-                            <div class="station-icon railgun-station">
-                                <i class="fas fa-crosshairs"></i>
-                            </div>
-                            <div class="station-info">
-                                <span class="station-name">Рейлган</span>
-                                <span class="station-cost">500 <i class="fas fa-coins"></i></span>
-                            </div>
-                            <div class="station-stats">
-                                <span class="stat-tag">💫 80 урон</span>
-                                <span class="stat-tag">🛡️ бронебой</span>
-                            </div>
-                        </div>
-                        
-                        <div class="station-item" data-type="tesla" data-cost="300">
-                            <div class="station-icon tesla-station">
-                                <i class="fas fa-bolt-lightning"></i>
-                            </div>
-                            <div class="station-info">
-                                <span class="station-name">Тесла</span>
-                                <span class="station-cost">300 <i class="fas fa-coins"></i></span>
-                            </div>
-                            <div class="station-stats">
-                                <span class="stat-tag">⚡ 15 урон</span>
-                                <span class="stat-tag">🔗 цепная</span>
-                            </div>
-                        </div>
-                        
-                        <!-- Премиум станции будут добавлены динамически через JS -->
+                        <!-- Станции будут добавлены через JS -->
                     </div>
                 </div>
 
-                <!-- Новый магазин -->
-                <div class="modal-overlay" id="shopModal">
-                    <div class="modal-content shop-modal">
-                        <div class="modal-header">
-                            <h2 class="modal-title"><i class="fas fa-shopping-cart"></i> МАГАЗИН</h2>
-                            <button class="close-modal" id="closeShop">&times;</button>
-                        </div>
-                        <div class="modal-body shop-body">
-                            <div class="shop-currency">
-                                <div class="currency-display">
-                                    <i class="fas fa-gem" style="color: #9d4edd;"></i>
-                                    <span class="currency-label">КРИСТАЛЛЫ:</span>
-                                    <span class="currency-value" id="crystalsAmount">0</span>
-                                </div>
-                            </div>
-                            
-                            <div class="shop-tabs">
-                                <button class="shop-tab active" data-tab="weapons">Оружие</button>
-                                <button class="shop-tab" data-tab="satellites">Спутники</button>
-                                <button class="shop-tab" data-tab="harvesters">Харвестеры</button>
-                                <button class="shop-tab" data-tab="cosmetics">Косметика</button>
-                            </div>
-                            
-                            <div class="shop-items" id="shopItems">
-                                <!-- Динамически загружается -->
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
                 <!-- Base Info -->
                 <div class="base-section-mini">
                     <div class="section-header-mini">
@@ -284,6 +163,10 @@
                         <div class="bonus-item">
                             <i class="fas fa-map-marker-alt"></i>
                             <span>Места: <strong id="availableSlots">5/12</strong></span>
+                        </div>
+                        <div class="bonus-item">
+                            <i class="fas fa-robot"></i>
+                            <span>Дроны: <strong id="dronesCountMini">2</strong>/<span id="maxDronesMini">2</span></span>
                         </div>
                     </div>
                 </div>
@@ -326,14 +209,6 @@
                     <i class="fas fa-trophy"></i>
                     <span>РЕКОРД: <strong id="highscore">0</strong></span>
                 </div>
-                <div class="drones-counter-mini">
-                    <i class="fas fa-robot"></i>
-                    <span>Дроны: <strong id="dronesCountMini">2</strong>/<span id="maxDronesMini">2</span></span>
-                </div>
-                <div class="crystals-counter-mini">
-                    <i class="fas fa-gem"></i>
-                    <span>Кристаллы: <strong id="crystalsCountMini">0</strong></span>
-                </div>
             </div>
         </footer>
     </div>
@@ -347,6 +222,36 @@
             </div>
             <div class="modal-body" id="modalBody">
                 <!-- Content loaded via JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Shop Modal -->
+    <div class="modal-overlay" id="shopModal">
+        <div class="modal-content shop-modal">
+            <div class="modal-header">
+                <h2 class="modal-title"><i class="fas fa-shopping-cart"></i> МАГАЗИН</h2>
+                <button class="close-modal" id="closeShop">&times;</button>
+            </div>
+            <div class="modal-body shop-body">
+                <div class="shop-currency">
+                    <div class="currency-display">
+                        <i class="fas fa-gem" style="color: #9d4edd;"></i>
+                        <span class="currency-label">КРИСТАЛЛЫ:</span>
+                        <span class="currency-value" id="crystalsAmount">0</span>
+                    </div>
+                </div>
+                
+                <div class="shop-tabs">
+                    <button class="shop-tab active" data-tab="weapons">Оружие</button>
+                    <button class="shop-tab" data-tab="satellites">Спутники</button>
+                    <button class="shop-tab" data-tab="harvesters">Харвестеры</button>
+                    <button class="shop-tab" data-tab="cosmetics">Косметика</button>
+                </div>
+                
+                <div class="shop-items" id="shopItems">
+                    <!-- Динамически загружается -->
+                </div>
             </div>
         </div>
     </div>
@@ -379,10 +284,6 @@
                     <div class="stat">
                         <span class="stat-label">Кристаллы</span>
                         <span class="stat-value" id="gameOverCrystals">0</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-label">Спутники</span>
-                        <span class="stat-value" id="gameOverSatellites">0</span>
                     </div>
                 </div>
                 <button id="restartGame" class="restart-btn">

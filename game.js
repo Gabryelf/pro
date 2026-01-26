@@ -1,4 +1,4 @@
-// Cosmic Defender - Исправленная версия
+// Cosmic Defender - Переписанная версия с исправлениями
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 Cosmic Defender загружается...');
     
@@ -10,13 +10,12 @@ document.addEventListener('DOMContentLoaded', () => {
             START_CRYSTALS: parseInt(localStorage.getItem('cosmic_crystals')) || 0,
             MAX_SETS: 5,
             WAVES_PER_SET: 10,
-            CELL_SIZE: 40,
-            GAME_SPEED: 1.0,
-            ENEMY_SPAWN_INTERVAL: 2000,
             BASE_INCOME: 50,
             DRONES_PER_LEVEL: 2,
-            SATELLITE_COST: 75,
-            HARVESTER_COST: 100
+            ENEMY_SPAWN_INTERVAL: 2000,
+            GAME_SPEED: 1.0,
+            MIN_BUILD_SPOT_DISTANCE: 120,
+            MAX_BUILD_SPOT_DISTANCE: 300
         },
         
         STATIONS: {
@@ -74,30 +73,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 sellRatio: 0.6,
                 isPremium: true,
                 crystalCost: 50
-            },
-            CRYSTAL: {
-                name: 'Кристальный эмиттер',
-                cost: 600,
-                damage: 35,
-                range: 220,
-                fireRate: 1000,
-                color: '#00ffff',
-                icon: 'gem',
-                sellRatio: 0.6,
-                isPremium: true,
-                crystalCost: 75
-            },
-            GRAVITY: {
-                name: 'Гравитационная пушка',
-                cost: 900,
-                damage: 100,
-                range: 180,
-                fireRate: 2500,
-                color: '#ff00ff',
-                icon: 'compass',
-                sellRatio: 0.6,
-                isPremium: true,
-                crystalCost: 100
             }
         },
         
@@ -174,10 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
         enemies: [],
         projectiles: [],
         particles: [],
-        cells: [],
-        drones: [],
-        satellites: [],
-        harvesters: [],
+        baseDrones: [],
         
         enemiesSpawned: 0,
         enemiesKilledThisWave: 0,
@@ -190,30 +162,33 @@ document.addEventListener('DOMContentLoaded', () => {
         
         lastTime: 0,
         deltaTime: 0,
+        animationTime: 0,
         
         base: JSON.parse(JSON.stringify(CONFIG.BASE)),
-        baseDrones: [],
         
         currentPaths: [],
         pathArrows: [],
+        
+        buildSpots: [],
+        hoveredBuildSpot: null,
         
         unlockedStations: {
             LASER: true,
             PLASMA: true,
             RAILGUN: true,
             TESLA: true,
-            QUANTUM: false,
-            CRYSTAL: false,
-            GRAVITY: false
+            QUANTUM: false
         },
         purchasedItems: JSON.parse(localStorage.getItem('cosmic_purchases')) || {},
         
-        availableBuildSpots: [],
-        animationTime: 0
+        isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
+        touchStartX: 0,
+        touchStartY: 0
     };
     
     // ==================== DOM ЭЛЕМЕНТЫ ====================
     let DOM = {};
+    let canvasRect = { left: 0, top: 0, width: 0, height: 0 };
     
     function initDOM() {
         DOM = {
@@ -221,11 +196,11 @@ document.addEventListener('DOMContentLoaded', () => {
             ctx: null,
             lives: document.getElementById('lives'),
             gold: document.getElementById('gold'),
+            crystalsCount: document.getElementById('crystalsCount'),
             set: document.getElementById('set'),
+            currentWave: document.getElementById('currentWave'),
+            enemiesLeftMini: document.getElementById('enemiesLeftMini'),
             highscore: document.getElementById('highscore'),
-            waveProgress: document.getElementById('waveProgressMini'),
-            enemiesLeft: document.getElementById('enemiesLeftMini'),
-            enemiesKilled: document.getElementById('floatingKills'),
             startWaveBtn: document.getElementById('startWave'),
             pauseGameBtn: document.getElementById('pauseGame'),
             fastForwardBtn: document.getElementById('fastForward'),
@@ -261,7 +236,8 @@ document.addEventListener('DOMContentLoaded', () => {
             crystalsAmount: document.getElementById('crystalsAmount'),
             stationsGrid: document.getElementById('stationsGrid'),
             currentWaveSidebar: document.getElementById('currentWaveSidebar'),
-            floatingEnemies: document.getElementById('floatingEnemies'),
+            waveAttacking: document.getElementById('waveAttacking'),
+            waveKilled: document.getElementById('waveKilled'),
             gameOverModal: document.getElementById('gameOverModal'),
             restartGameBtn: document.getElementById('restartGame'),
             gameOverSet: document.getElementById('gameOverSet'),
@@ -269,18 +245,31 @@ document.addEventListener('DOMContentLoaded', () => {
             gameOverCredits: document.getElementById('gameOverCredits'),
             gameOverKills: document.getElementById('gameOverKills'),
             gameOverCrystals: document.getElementById('gameOverCrystals'),
-            gameOverSatellites: document.getElementById('gameOverSatellites'),
             dronesCountMini: document.getElementById('dronesCountMini'),
-            maxDronesMini: document.getElementById('maxDronesMini'),
-            waveAttacking: document.getElementById('waveAttacking'),
-            waveKilled: document.getElementById('waveKilled'),
-            currentWave: document.getElementById('currentWave'),
-            floatingSet: document.getElementById('floatingSet'),
-            floatingWave: document.getElementById('floatingWave'),
-            waveStageDisplay: null
+            maxDronesMini: document.getElementById('maxDronesMini')
         };
         
         DOM.ctx = DOM.canvas.getContext('2d');
+        updateCanvasRect();
+    }
+    
+    function updateCanvasRect() {
+        const rect = DOM.canvas.getBoundingClientRect();
+        canvasRect = {
+            left: rect.left,
+            top: rect.top,
+            width: rect.width,
+            height: rect.height,
+            scaleX: DOM.canvas.width / rect.width,
+            scaleY: DOM.canvas.height / rect.height
+        };
+    }
+    
+    function getCanvasCoordinates(x, y) {
+        return {
+            x: (x - canvasRect.left) * canvasRect.scaleX,
+            y: (y - canvasRect.top) * canvasRect.scaleY
+        };
     }
     
     // ==================== ИНИЦИАЛИЗАЦИЯ ====================
@@ -289,9 +278,12 @@ document.addEventListener('DOMContentLoaded', () => {
         
         initDOM();
         setupCanvas();
-        initGameField();
-        generateBuildSpots();
         setupEventListeners();
+        
+        generateBuildSpots();
+        generatePaths();
+        createBaseDrones();
+        createStars();
         
         loadPurchasedItems();
         updateStationsShop();
@@ -301,11 +293,9 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUI();
         generateWavePreview();
         initInfoModal();
+        updateBaseInfo();
         
-        createBaseDrones();
-        generatePaths();
-        
-        showMessage('🚀 Добро пожаловать в Cosmic Defender! Выберите станцию и нажмите СТАРТ', 'info');
+        showMessage('🚀 Добро пожаловать! Выберите станцию и начните волну', 'info');
         
         requestAnimationFrame(gameLoop);
         console.log('✅ Игра инициализирована!');
@@ -316,75 +306,72 @@ document.addEventListener('DOMContentLoaded', () => {
         const header = document.querySelector('.header');
         const footer = document.querySelector('.game-footer-mini');
         
-        const availableHeight = window.innerHeight - header.offsetHeight - footer.offsetHeight - 24;
-        const availableWidth = container.clientWidth;
+        const updateCanvasSize = () => {
+            const availableHeight = window.innerHeight - header.offsetHeight - (footer ? footer.offsetHeight : 0) - 16;
+            const availableWidth = container.clientWidth - 16;
+            
+            DOM.canvas.width = Math.max(600, availableWidth);
+            DOM.canvas.height = Math.max(400, availableHeight);
+            
+            console.log(`📐 Канвас: ${DOM.canvas.width}x${DOM.canvas.height}`);
+            
+            generateBuildSpots();
+            generatePaths();
+            
+            GameState.stations.forEach(station => {
+                if (station.buildSpot) {
+                    station.x = station.buildSpot.x;
+                    station.y = station.buildSpot.y;
+                }
+            });
+            
+            updateCanvasRect();
+        };
         
-        DOM.canvas.width = Math.max(800, availableWidth);
-        DOM.canvas.height = Math.max(600, availableHeight);
+        updateCanvasSize();
         
-        console.log(`📐 Канвас: ${DOM.canvas.width}x${DOM.canvas.height}`);
-    }
-    
-    function initGameField() {
-        const cols = Math.floor(DOM.canvas.width / CONFIG.GAME.CELL_SIZE);
-        const rows = Math.floor(DOM.canvas.height / CONFIG.GAME.CELL_SIZE);
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                updateCanvasSize();
+                updateCanvasRect();
+            }, 100);
+        });
         
-        GameState.cells = [];
-        
-        for (let x = 0; x < cols; x++) {
-            for (let y = 0; y < rows; y++) {
-                GameState.cells.push({
-                    x: x * CONFIG.GAME.CELL_SIZE,
-                    y: y * CONFIG.GAME.CELL_SIZE,
-                    width: CONFIG.GAME.CELL_SIZE,
-                    height: CONFIG.GAME.CELL_SIZE,
-                    occupied: false,
-                    station: null,
-                    hovered: false,
-                    isBuildSpot: false
-                });
-            }
-        }
-        
-        createStars();
+        window.addEventListener('scroll', updateCanvasRect);
     }
     
     function generateBuildSpots() {
-        const cols = Math.floor(DOM.canvas.width / CONFIG.GAME.CELL_SIZE);
-        const rows = Math.floor(DOM.canvas.height / CONFIG.GAME.CELL_SIZE);
-        
-        GameState.availableBuildSpots = [];
+        GameState.buildSpots = [];
         
         const centerX = DOM.canvas.width / 2;
         const centerY = DOM.canvas.height / 2;
-        const minRadius = 150;
-        const maxRadius = Math.min(350, centerY - 100);
+        const minRadius = CONFIG.GAME.MIN_BUILD_SPOT_DISTANCE;
+        const maxRadius = Math.min(CONFIG.GAME.MAX_BUILD_SPOT_DISTANCE, 
+                                 Math.min(centerX, centerY) - 50);
         
-        while (GameState.availableBuildSpots.length < GameState.base.availableSlots) {
-            const angle = Math.random() * Math.PI * 2;
-            const radius = minRadius + Math.random() * (maxRadius - minRadius);
+        const angleStep = (Math.PI * 2) / GameState.base.availableSlots;
+        
+        for (let i = 0; i < GameState.base.availableSlots; i++) {
+            const angle = i * angleStep + (Math.random() * 0.2 - 0.1);
+            const radius = minRadius + (maxRadius - minRadius) * (i / GameState.base.availableSlots);
             
-            const x = Math.floor((centerX + Math.cos(angle) * radius) / CONFIG.GAME.CELL_SIZE);
-            const y = Math.floor((centerY + Math.sin(angle) * radius) / CONFIG.GAME.CELL_SIZE);
+            const spot = {
+                x: centerX + Math.cos(angle) * radius,
+                y: centerY + Math.sin(angle) * radius,
+                radius: 20,
+                occupied: false,
+                station: null,
+                angle: angle
+            };
             
-            if (x >= 2 && x < cols - 2 && y >= 2 && y < rows - 2) {
-                const spot = { x, y };
-                const exists = GameState.availableBuildSpots.some(s => s.x === x && s.y === y);
-                
-                if (!exists) {
-                    GameState.availableBuildSpots.push(spot);
-                    
-                    const cellIndex = y * cols + x;
-                    if (cellIndex < GameState.cells.length) {
-                        GameState.cells[cellIndex].isBuildSpot = true;
-                    }
-                }
-            }
+            GameState.buildSpots.push(spot);
         }
     }
     
     function createStars() {
-        for (let i = 0; i < 50; i++) {
+        for (let i = 0; i < 100; i++) {
             GameState.particles.push({
                 x: Math.random() * DOM.canvas.width,
                 y: Math.random() * DOM.canvas.height,
@@ -434,7 +421,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         for (let i = 0; i < pathCount; i++) {
             const angle = (i / pathCount) * Math.PI * 2;
-            const startDistance = Math.min(600, DOM.canvas.width * 0.4);
+            const startDistance = Math.min(500, Math.min(DOM.canvas.width, DOM.canvas.height) * 0.45);
             
             const path = [
                 {
@@ -489,22 +476,14 @@ document.addEventListener('DOMContentLoaded', () => {
         DOM.restartGameBtn.addEventListener('click', resetGame);
         
         // Взаимодействие с канвасом
-        DOM.canvas.addEventListener('click', handleCanvasClick);
-        DOM.canvas.addEventListener('mousemove', handleCanvasMouseMove);
-        DOM.canvas.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            clearSelection();
-        });
+        if (GameState.isMobile) {
+            setupTouchEvents();
+        } else {
+            setupMouseEvents();
+        }
         
         // Горячие клавиши
         document.addEventListener('keydown', handleKeyPress);
-        
-        // Ресайз с debounce
-        let resizeTimeout;
-        window.addEventListener('resize', () => {
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(handleResize, 100);
-        });
         
         // Клик по overlay
         DOM.infoModal.addEventListener('click', (e) => {
@@ -543,6 +522,120 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    function setupMouseEvents() {
+        DOM.canvas.addEventListener('mousedown', handleCanvasMouseDown);
+        DOM.canvas.addEventListener('mousemove', handleCanvasMouseMove);
+        DOM.canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            clearSelection();
+        });
+    }
+    
+    function setupTouchEvents() {
+        DOM.canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+        DOM.canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+        DOM.canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+        
+        // Предотвращаем масштабирование на канвасе
+        DOM.canvas.addEventListener('gesturestart', (e) => e.preventDefault());
+        DOM.canvas.addEventListener('gesturechange', (e) => e.preventDefault());
+        DOM.canvas.addEventListener('gestureend', (e) => e.preventDefault());
+    }
+    
+    function handleCanvasMouseDown(e) {
+        const coords = getCanvasCoordinates(e.clientX, e.clientY);
+        
+        if (e.button === 2) { // Правая кнопка
+            clearSelection();
+            return;
+        }
+        
+        if (GameState.selectedStationType && !GameState.isWaveActive) {
+            placeStation(coords.x, coords.y);
+            return;
+        }
+        
+        selectStationAtPosition(coords.x, coords.y);
+    }
+    
+    function handleCanvasMouseMove(e) {
+        const coords = getCanvasCoordinates(e.clientX, e.clientY);
+        
+        GameState.hoveredBuildSpot = null;
+        
+        if (GameState.selectedStationType && !GameState.isWaveActive) {
+            // Находим ближайшее место для постройки
+            let closestSpot = null;
+            let closestDistance = Infinity;
+            
+            for (const spot of GameState.buildSpots) {
+                if (!spot.occupied) {
+                    const dx = spot.x - coords.x;
+                    const dy = spot.y - coords.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 30 && distance < closestDistance) {
+                        closestDistance = distance;
+                        closestSpot = spot;
+                    }
+                }
+            }
+            
+            GameState.hoveredBuildSpot = closestSpot;
+        }
+    }
+    
+    function handleTouchStart(e) {
+        e.preventDefault();
+        updateCanvasRect();
+        
+        const touch = e.touches[0];
+        GameState.touchStartX = touch.clientX;
+        GameState.touchStartY = touch.clientY;
+        
+        const coords = getCanvasCoordinates(touch.clientX, touch.clientY);
+        
+        // Проверяем, не нажали ли мы на существующую станцию
+        if (!selectStationAtPosition(coords.x, coords.y)) {
+            // Если нет, и выбрана станция для постройки - ставим её
+            if (GameState.selectedStationType && !GameState.isWaveActive) {
+                placeStation(coords.x, coords.y);
+            }
+        }
+    }
+    
+    function handleTouchMove(e) {
+        e.preventDefault();
+        const touch = e.touches[0];
+        const coords = getCanvasCoordinates(touch.clientX, touch.clientY);
+        
+        GameState.hoveredBuildSpot = null;
+        
+        if (GameState.selectedStationType && !GameState.isWaveActive) {
+            let closestSpot = null;
+            let closestDistance = Infinity;
+            
+            for (const spot of GameState.buildSpots) {
+                if (!spot.occupied) {
+                    const dx = spot.x - coords.x;
+                    const dy = spot.y - coords.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 40 && distance < closestDistance) {
+                        closestDistance = distance;
+                        closestSpot = spot;
+                    }
+                }
+            }
+            
+            GameState.hoveredBuildSpot = closestSpot;
+        }
+    }
+    
+    function handleTouchEnd(e) {
+        e.preventDefault();
+    }
+    
     function selectTowerFromShop(item) {
         if (GameState.isWaveActive) {
             showMessage('⚠️ Нельзя строить во время волны!', 'warning');
@@ -572,30 +665,23 @@ document.addEventListener('DOMContentLoaded', () => {
         showMessage(`🎯 Выбрана ${config.name}. Кликните на свободное место для установки.`, 'info');
     }
     
-    function handleCanvasClick(e) {
-        const rect = DOM.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        
-        if (GameState.selectedStationType && !GameState.isWaveActive) {
-            placeStation(x, y);
-            return;
+    function selectStationAtPosition(x, y) {
+        for (const station of GameState.stations) {
+            const dx = x - station.x;
+            const dy = y - station.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < 25) {
+                selectStationForUpgrade(station);
+                return true;
+            }
         }
         
-        selectStationAtPosition(x, y);
-    }
-    
-    function handleCanvasMouseMove(e) {
-        const rect = DOM.canvas.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        
-        GameState.cells.forEach(cell => cell.hovered = false);
-        
-        const cell = findCellAtPosition(x, y);
-        if (cell) {
-            cell.hovered = true;
+        if (GameState.selectedStation) {
+            closeTowerInfo();
         }
+        
+        return false;
     }
     
     function togglePause() {
@@ -654,23 +740,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
-    function handleResize() {
-        setupCanvas();
-        GameState.cells = [];
-        GameState.particles = [];
-        initGameField();
-        generateBuildSpots();
-        generatePaths();
-        
-        // Обновляем позиции станций
-        GameState.stations.forEach(station => {
-            if (station.cell) {
-                station.x = station.cell.x + station.cell.width / 2;
-                station.y = station.cell.y + station.cell.height / 2;
-            }
-        });
-    }
-    
     // ==================== ИГРОВАЯ ЛОГИКА ====================
     function gameLoop(timestamp) {
         GameState.deltaTime = timestamp - GameState.lastTime || 0;
@@ -688,8 +757,6 @@ document.addEventListener('DOMContentLoaded', () => {
             updateStations();
             updateProjectiles();
             updateBaseDrones();
-            updateSatellites();
-            updateHarvesters();
             
             if (DOM.waveAttacking) DOM.waveAttacking.textContent = GameState.waveEnemiesAlive;
             if (DOM.waveKilled) DOM.waveKilled.textContent = GameState.waveEnemiesKilled;
@@ -740,11 +807,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 spawnEnemy();
                 GameState.enemySpawnTimer = 0;
             }
-        }
-        
-        const progress = (GameState.enemiesSpawned / GameState.enemiesThisWave) * 100;
-        if (DOM.waveProgress) {
-            DOM.waveProgress.style.width = `${progress}%`;
         }
         
         GameState.waveEnemiesAlive = GameState.enemies.length;
@@ -833,8 +895,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function updateEnemiesUI() {
         const enemiesLeft = Math.max(0, GameState.enemiesThisWave - GameState.enemiesKilledThisWave);
-        if (DOM.enemiesLeft) DOM.enemiesLeft.textContent = enemiesLeft;
-        if (DOM.floatingEnemies) DOM.floatingEnemies.textContent = enemiesLeft;
+        if (DOM.enemiesLeftMini) DOM.enemiesLeftMini.textContent = enemiesLeft;
     }
     
     function updateEnemies() {
@@ -910,6 +971,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const crystals = enemy.crystals;
             GameState.crystals += crystals;
             if (DOM.crystalsAmount) DOM.crystalsAmount.textContent = GameState.crystals;
+            if (DOM.crystalsCount) DOM.crystalsCount.textContent = GameState.crystals;
             createCrystalEffect(enemy.x, enemy.y, crystals);
         }
         
@@ -920,7 +982,6 @@ document.addEventListener('DOMContentLoaded', () => {
         GameState.waveEnemiesAlive = GameState.enemies.length;
         
         updateUI();
-        if (DOM.enemiesKilled) DOM.enemiesKilled.textContent = GameState.enemiesKilledThisWave;
         updateEnemiesUI();
     }
     
@@ -988,20 +1049,27 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // ==================== СТАНЦИИ ====================
     function placeStation(x, y) {
-        const cell = findCellAtPosition(x, y);
+        if (!GameState.selectedStationType || GameState.isWaveActive) return;
         
-        if (!cell) {
-            showMessage('❌ Кликните по ячейке!', 'error');
-            return;
+        // Находим ближайшее свободное место для постройки
+        let closestSpot = null;
+        let closestDistance = Infinity;
+        
+        for (const spot of GameState.buildSpots) {
+            if (!spot.occupied) {
+                const dx = spot.x - x;
+                const dy = spot.y - y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < 40 && distance < closestDistance) {
+                    closestDistance = distance;
+                    closestSpot = spot;
+                }
+            }
         }
         
-        if (!cell.isBuildSpot) {
-            showMessage('❌ Здесь нельзя строить!', 'error');
-            return;
-        }
-        
-        if (cell.occupied) {
-            showMessage('❌ Эта ячейка занята!', 'error');
+        if (!closestSpot) {
+            showMessage('❌ Нет свободных мест для постройки!', 'error');
             return;
         }
         
@@ -1021,8 +1089,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const station = {
             id: Date.now() + Math.random(),
-            x: cell.x + cell.width / 2,
-            y: cell.y + cell.height / 2,
+            x: closestSpot.x,
+            y: closestSpot.y,
             type: GameState.selectedStationType,
             name: config.name,
             damage: config.damage,
@@ -1033,7 +1101,7 @@ document.addEventListener('DOMContentLoaded', () => {
             lastShot: 0,
             target: null,
             rotation: 0,
-            cell: cell,
+            buildSpot: closestSpot,
             icon: config.icon,
             sellValue: Math.floor(cost * 0.6),
             isPremium: config.isPremium || false,
@@ -1041,8 +1109,8 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         
         GameState.stations.push(station);
-        cell.occupied = true;
-        cell.station = station;
+        closestSpot.occupied = true;
+        closestSpot.station = station;
         
         GameState.credits -= cost;
         
@@ -1062,30 +1130,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showMessage(`✅ ${config.name} установлена!`, 'success');
         updateUI();
         clearSelection();
-    }
-    
-    function findCellAtPosition(x, y) {
-        return GameState.cells.find(cell =>
-            x >= cell.x && x <= cell.x + cell.width &&
-            y >= cell.y && y <= cell.y + cell.height
-        );
-    }
-    
-    function selectStationAtPosition(x, y) {
-        for (const station of GameState.stations) {
-            const dx = x - station.x;
-            const dy = y - station.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            if (distance < 20) {
-                selectStationForUpgrade(station);
-                return;
-            }
-        }
-        
-        if (GameState.selectedStation) {
-            closeTowerInfo();
-        }
+        updateAvailableSlots();
     }
     
     function selectStationForUpgrade(station) {
@@ -1152,13 +1197,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const station = GameState.selectedStation;
         
-        if (!confirm(`Продать ${station.name} за ${station.sellValue} кредитов?`)) {
-            return;
-        }
-        
         GameState.credits += station.sellValue;
-        station.cell.occupied = false;
-        station.cell.station = null;
+        station.buildSpot.occupied = false;
+        station.buildSpot.station = null;
         
         const index = GameState.stations.indexOf(station);
         GameState.stations.splice(index, 1);
@@ -1180,6 +1221,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showMessage(`💰 Станция продана за ${station.sellValue} кредитов!`, 'success');
         closeTowerInfo();
         updateUI();
+        updateAvailableSlots();
     }
     
     function updateStations() {
@@ -1369,7 +1411,6 @@ document.addEventListener('DOMContentLoaded', () => {
         drawBackground();
         drawPaths();
         drawBuildSpots();
-        drawHoveredCell();
         drawStations();
         drawEnemies();
         drawProjectiles();
@@ -1461,12 +1502,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const angle = Math.atan2(nextPoint.y - pos.y, nextPoint.x - pos.x);
             
             const pulse = Math.sin(GameState.animationTime * 0.001 * arrow.pulseSpeed + arrow.offset) * 0.3 + 0.4;
-            arrow.alpha = pulse;
             
             DOM.ctx.save();
             DOM.ctx.translate(pos.x, pos.y);
             DOM.ctx.rotate(angle);
-            DOM.ctx.fillStyle = `rgba(255, 215, 0, ${arrow.alpha})`;
+            DOM.ctx.fillStyle = `rgba(255, 215, 0, ${pulse})`;
             
             DOM.ctx.beginPath();
             DOM.ctx.moveTo(0, -8);
@@ -1491,28 +1531,34 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function drawBuildSpots() {
-        GameState.cells.forEach(cell => {
-            if (cell.isBuildSpot) {
-                DOM.ctx.fillStyle = cell.occupied ? 'rgba(255, 46, 99, 0.3)' : 'rgba(0, 212, 255, 0.1)';
-                DOM.ctx.fillRect(cell.x, cell.y, cell.width, cell.height);
-                
-                DOM.ctx.strokeStyle = cell.occupied ? '#ff2e63' : 'rgba(0, 212, 255, 0.5)';
-                DOM.ctx.lineWidth = 1;
-                DOM.ctx.strokeRect(cell.x, cell.y, cell.width, cell.height);
+        GameState.buildSpots.forEach(spot => {
+            if (spot.occupied) {
+                DOM.ctx.fillStyle = 'rgba(255, 46, 99, 0.3)';
+            } else if (GameState.hoveredBuildSpot === spot && GameState.selectedStationType && !GameState.isWaveActive) {
+                DOM.ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+            } else {
+                DOM.ctx.fillStyle = 'rgba(0, 212, 255, 0.1)';
             }
-        });
-    }
-    
-    function drawHoveredCell() {
-        const hoveredCell = GameState.cells.find(cell => cell.hovered);
-        if (hoveredCell && GameState.selectedStationType && !GameState.isWaveActive) {
-            DOM.ctx.fillStyle = 'rgba(255, 215, 0, 0.2)';
-            DOM.ctx.fillRect(hoveredCell.x, hoveredCell.y, hoveredCell.width, hoveredCell.height);
             
-            DOM.ctx.strokeStyle = '#ffd700';
-            DOM.ctx.lineWidth = 2;
-            DOM.ctx.strokeRect(hoveredCell.x, hoveredCell.y, hoveredCell.width, hoveredCell.height);
-        }
+            DOM.ctx.beginPath();
+            DOM.ctx.arc(spot.x, spot.y, spot.radius, 0, Math.PI * 2);
+            DOM.ctx.fill();
+            
+            if (spot.occupied) {
+                DOM.ctx.strokeStyle = '#ff2e63';
+            } else if (GameState.hoveredBuildSpot === spot && GameState.selectedStationType && !GameState.isWaveActive) {
+                DOM.ctx.strokeStyle = '#ffd700';
+                DOM.ctx.lineWidth = 2;
+            } else {
+                DOM.ctx.strokeStyle = 'rgba(0, 212, 255, 0.5)';
+                DOM.ctx.lineWidth = 1;
+            }
+            
+            DOM.ctx.beginPath();
+            DOM.ctx.arc(spot.x, spot.y, spot.radius, 0, Math.PI * 2);
+            DOM.ctx.stroke();
+            DOM.ctx.lineWidth = 1;
+        });
     }
     
     function drawStations() {
@@ -1523,18 +1569,18 @@ document.addEventListener('DOMContentLoaded', () => {
             
             DOM.ctx.fillStyle = station.color;
             DOM.ctx.beginPath();
-            DOM.ctx.arc(0, 0, 12, 0, Math.PI * 2);
+            DOM.ctx.arc(0, 0, 15, 0, Math.PI * 2);
             DOM.ctx.fill();
             
             DOM.ctx.fillStyle = '#ffffff';
-            DOM.ctx.fillRect(8, -3, 8, 6);
+            DOM.ctx.fillRect(10, -4, 10, 8);
             
             DOM.ctx.restore();
             
             DOM.ctx.fillStyle = station.color;
-            DOM.ctx.font = 'bold 10px Arial';
+            DOM.ctx.font = 'bold 11px Arial';
             DOM.ctx.textAlign = 'center';
-            DOM.ctx.fillText(`Lvl ${station.level}`, station.x, station.y - 20);
+            DOM.ctx.fillText(`Lvl ${station.level}`, station.x, station.y - 25);
         });
     }
     
@@ -1663,18 +1709,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             DOM.ctx.restore();
-            
-            if (drone.health < drone.maxHealth) {
-                const healthWidth = 30;
-                const healthPercent = drone.health / drone.maxHealth;
-                
-                DOM.ctx.fillStyle = '#2c3e50';
-                DOM.ctx.fillRect(drone.x - healthWidth / 2, drone.y - 20, healthWidth, 4);
-                
-                DOM.ctx.fillStyle = healthPercent > 0.5 ? '#00ff9d' : 
-                                   healthPercent > 0.25 ? '#ffd700' : '#ff2e63';
-                DOM.ctx.fillRect(drone.x - healthWidth / 2, drone.y - 20, healthWidth * healthPercent, 4);
-            }
         });
     }
     
@@ -1690,11 +1724,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // ==================== МАГАЗИН ====================
-    function initShop() {
-        loadPurchasedItems();
-        updateShop('weapons');
-    }
-    
     function updateShop(tab = 'weapons') {
         if (!DOM.shopItems) return;
         
@@ -1707,20 +1736,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     name: 'Квантовый луч',
                     description: 'Мощный луч с проникающей способностью',
                     crystalCost: 50,
-                    type: 'weapon'
-                },
-                {
-                    id: 'crystal',
-                    name: 'Кристальный эмиттер',
-                    description: 'Излучает кристальную энергию по нескольким целям',
-                    crystalCost: 75,
-                    type: 'weapon'
-                },
-                {
-                    id: 'gravity',
-                    name: 'Гравитационная пушка',
-                    description: 'Замедляет и наносит урон всем врагам в области',
-                    crystalCost: 100,
                     type: 'weapon'
                 }
             ],
@@ -1845,9 +1860,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         const premiumStations = [
-            { key: 'QUANTUM', config: CONFIG.STATIONS.QUANTUM },
-            { key: 'CRYSTAL', config: CONFIG.STATIONS.CRYSTAL },
-            { key: 'GRAVITY', config: CONFIG.STATIONS.GRAVITY }
+            { key: 'QUANTUM', config: CONFIG.STATIONS.QUANTUM }
         ];
         
         premiumStations.forEach(({ key, config }) => {
@@ -1889,6 +1902,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         GameState.crystals -= price;
         if (DOM.crystalsAmount) DOM.crystalsAmount.textContent = GameState.crystals;
+        if (DOM.crystalsCount) DOM.crystalsCount.textContent = GameState.crystals;
         
         switch(type) {
             case 'weapon':
@@ -1897,20 +1911,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateStationsShop();
                 showNotification(`✅ ${CONFIG.STATIONS[weaponKey].name} разблокирована!`, 'success');
                 break;
-                
-            case 'satellite':
-                createSatellite();
-                showNotification(`✅ Спутник добавлен!`, 'success');
-                break;
-                
-            case 'harvester':
-                createHarvester();
-                showNotification(`✅ Харвестер добавлен!`, 'success');
-                break;
-                
-            case 'cosmetic':
-                showNotification(`✅ Косметический предмет приобретен!`, 'success');
-                break;
         }
         
         GameState.purchasedItems[id] = true;
@@ -1918,90 +1918,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         updateShop();
         showMessage(`💎 Куплено: ${id}`, 'success');
-    }
-    
-    function createSatellite() {
-        const satellite = {
-            x: DOM.canvas.width / 2 + (Math.random() - 0.5) * 100,
-            y: DOM.canvas.height / 2 + (Math.random() - 0.5) * 100,
-            angle: Math.random() * Math.PI * 2,
-            speed: 0.5,
-            range: 150,
-            damage: 20,
-            lastShot: 0,
-            fireRate: 2000
-        };
-        
-        GameState.satellites.push(satellite);
-    }
-    
-    function createHarvester() {
-        const harvester = {
-            x: DOM.canvas.width / 2 + (Math.random() - 0.5) * 200,
-            y: DOM.canvas.height / 2 + (Math.random() - 0.5) * 200,
-            angle: Math.random() * Math.PI * 2,
-            speed: 0.3
-        };
-        
-        GameState.harvesters.push(harvester);
-    }
-    
-    function updateSatellites() {
-        GameState.satellites.forEach(satellite => {
-            satellite.angle += 0.01;
-            satellite.x = DOM.canvas.width / 2 + Math.cos(satellite.angle) * 200;
-            satellite.y = DOM.canvas.height / 2 + Math.sin(satellite.angle) * 200;
-            
-            const currentTime = Date.now();
-            if (currentTime - satellite.lastShot > satellite.fireRate) {
-                for (const enemy of GameState.enemies) {
-                    const dx = enemy.x - satellite.x;
-                    const dy = enemy.y - satellite.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
-                    
-                    if (distance < satellite.range) {
-                        enemy.health -= satellite.damage;
-                        satellite.lastShot = currentTime;
-                        
-                        GameState.projectiles.push({
-                            x: satellite.x,
-                            y: satellite.y,
-                            target: enemy,
-                            damage: satellite.damage,
-                            color: '#00bfff',
-                            speed: 8,
-                            size: 4,
-                            fromStation: null
-                        });
-                        break;
-                    }
-                }
-            }
-        });
-    }
-    
-    function updateHarvesters() {
-        GameState.harvesters.forEach(harvester => {
-            harvester.angle += (Math.random() - 0.5) * 0.1;
-            const moveDistance = harvester.speed * (GameState.deltaTime / 16) * CONFIG.GAME.GAME_SPEED;
-            
-            harvester.x += Math.cos(harvester.angle) * moveDistance;
-            harvester.y += Math.sin(harvester.angle) * moveDistance;
-            
-            harvester.x = Math.max(50, Math.min(DOM.canvas.width - 50, harvester.x));
-            harvester.y = Math.max(50, Math.min(DOM.canvas.height - 50, harvester.y));
-            
-            for (const enemy of GameState.enemies) {
-                const dx = enemy.x - harvester.x;
-                const dy = enemy.y - harvester.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                
-                if (distance < 100) {
-                    harvester.angle = Math.atan2(harvester.y - enemy.y, harvester.x - enemy.x);
-                    break;
-                }
-            }
-        });
     }
     
     function loadPurchasedItems() {
@@ -2035,10 +1951,6 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="modal-section">
                 <h3><i class="fas fa-gamepad"></i> Управление</h3>
                 <div class="hotkey-grid">
-                    <div class="hotkey-item">
-                        <span class="hotkey">ПКМ</span>
-                        <span class="hotkey-text">Отмена выбора</span>
-                    </div>
                     <div class="hotkey-item">
                         <span class="hotkey">ESC</span>
                         <span class="hotkey-text">Отмена выбора</span>
@@ -2075,7 +1987,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="modal-grid">
                     <div class="modal-item">
                         <h4>Стратегия построек</h4>
-                        <p>Ставьте станции ближе к поворотам путей для максимальной эффективности.</p>
+                        <p>Ставьте станции вокруг базы для максимальной защиты всех путей.</p>
                     </div>
                     <div class="modal-item">
                         <h4>Улучшение базы</h4>
@@ -2111,10 +2023,6 @@ document.addEventListener('DOMContentLoaded', () => {
         DOM.startWaveBtn.disabled = true;
         DOM.startWaveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> БОЙ';
         
-        // Обновляем отображение текущей волны в floating элементах
-        if (DOM.floatingSet) DOM.floatingSet.textContent = GameState.currentSet;
-        if (DOM.floatingWave) DOM.floatingWave.textContent = GameState.currentWave;
-        
         showMessage(`⚡ Волна ${GameState.currentWave} началась! Уничтожьте ${GameState.enemiesThisWave} врагов.`, 'warning');
     }
     
@@ -2128,6 +2036,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const crystalReward = Math.floor(GameState.currentWave / 2) + 5;
             GameState.crystals += crystalReward;
             if (DOM.crystalsAmount) DOM.crystalsAmount.textContent = GameState.crystals;
+            if (DOM.crystalsCount) DOM.crystalsCount.textContent = GameState.crystals;
             
             showNotification(`💎 +${crystalReward} кристаллов за безупречную защиту!`, 'crystal');
         }
@@ -2149,11 +2058,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         DOM.startWaveBtn.disabled = false;
         DOM.startWaveBtn.innerHTML = '<i class="fas fa-play"></i> СТАРТ';
-        if (DOM.waveProgress) DOM.waveProgress.style.width = '0%';
         if (DOM.currentWaveSidebar) DOM.currentWaveSidebar.textContent = GameState.currentWave;
         if (DOM.currentWave) DOM.currentWave.textContent = GameState.currentWave;
-        if (DOM.floatingSet) DOM.floatingSet.textContent = GameState.currentSet;
-        if (DOM.floatingWave) DOM.floatingWave.textContent = GameState.currentWave;
         
         generateWavePreview();
         
@@ -2181,8 +2087,6 @@ document.addEventListener('DOMContentLoaded', () => {
         DOM.startWaveBtn.disabled = false;
         DOM.startWaveBtn.innerHTML = '<i class="fas fa-play"></i> СТАРТ';
         if (DOM.set) DOM.set.textContent = `${GameState.currentSet}/${CONFIG.GAME.MAX_SETS}`;
-        if (DOM.floatingSet) DOM.floatingSet.textContent = GameState.currentSet;
-        if (DOM.floatingWave) DOM.floatingWave.textContent = GameState.currentWave;
     }
     
     function endGame(isVictory) {
@@ -2195,7 +2099,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (DOM.gameOverCredits) DOM.gameOverCredits.textContent = GameState.credits;
         if (DOM.gameOverKills) DOM.gameOverKills.textContent = GameState.enemiesKilledThisWave;
         if (DOM.gameOverCrystals) DOM.gameOverCrystals.textContent = GameState.crystals;
-        if (DOM.gameOverSatellites) DOM.gameOverSatellites.textContent = GameState.satellites.length;
         
         localStorage.setItem('cosmic_crystals', GameState.crystals);
         
@@ -2232,15 +2135,12 @@ document.addEventListener('DOMContentLoaded', () => {
         GameState.enemies = [];
         GameState.projectiles = [];
         GameState.particles = GameState.particles.filter(p => p.isStar);
-        GameState.cells = [];
         GameState.baseDrones = [];
-        GameState.satellites = [];
-        GameState.harvesters = [];
         
-        initGameField();
         generateBuildSpots();
         generatePaths();
         createBaseDrones();
+        createStars();
         
         clearSelection();
         closeTowerInfo();
@@ -2253,18 +2153,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (DOM.gameOverModal) DOM.gameOverModal.style.display = 'none';
         DOM.startWaveBtn.disabled = false;
         DOM.startWaveBtn.innerHTML = '<i class="fas fa-play"></i> СТАРТ';
-        if (DOM.waveProgress) DOM.waveProgress.style.width = '0%';
-        if (DOM.enemiesLeft) DOM.enemiesLeft.textContent = '10';
-        if (DOM.floatingEnemies) DOM.floatingEnemies.textContent = '10';
-        if (DOM.enemiesKilled) DOM.enemiesKilled.textContent = '0';
+        if (DOM.enemiesLeftMini) DOM.enemiesLeftMini.textContent = '10';
         if (DOM.set) DOM.set.textContent = `1/${CONFIG.GAME.MAX_SETS}`;
         if (DOM.currentWaveSidebar) DOM.currentWaveSidebar.textContent = '1';
         if (DOM.currentWave) DOM.currentWave.textContent = '1';
         if (DOM.waveAttacking) DOM.waveAttacking.textContent = '10';
         if (DOM.waveKilled) DOM.waveKilled.textContent = '0';
-        if (DOM.floatingSet) DOM.floatingSet.textContent = '1';
-        if (DOM.floatingWave) DOM.floatingWave.textContent = '1';
         if (DOM.crystalsAmount) DOM.crystalsAmount.textContent = GameState.crystals;
+        if (DOM.crystalsCount) DOM.crystalsCount.textContent = GameState.crystals;
         
         showMessage('🔄 Игра сброшена! Приготовьтесь к новой битве!', 'info');
     }
@@ -2353,6 +2249,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.station-item').forEach(i => i.classList.remove('selected'));
         GameState.selectedStationType = null;
         if (DOM.selectionIndicator) DOM.selectionIndicator.style.display = 'none';
+        GameState.hoveredBuildSpot = null;
     }
     
     function closeTowerInfo() {
@@ -2364,10 +2261,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateUI() {
         if (DOM.lives) DOM.lives.textContent = Math.floor(GameState.shields);
         if (DOM.gold) DOM.gold.textContent = GameState.credits;
+        if (DOM.crystalsCount) DOM.crystalsCount.textContent = GameState.crystals;
         if (DOM.set) DOM.set.textContent = `${GameState.currentSet}/${CONFIG.GAME.MAX_SETS}`;
         if (DOM.currentWave) DOM.currentWave.textContent = GameState.currentWave;
-        if (DOM.floatingSet) DOM.floatingSet.textContent = GameState.currentSet;
-        if (DOM.floatingWave) DOM.floatingWave.textContent = GameState.currentWave;
         if (DOM.crystalsAmount) DOM.crystalsAmount.textContent = GameState.crystals;
         
         const shieldPercent = GameState.shields / GameState.base.maxShields;
@@ -2389,8 +2285,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (DOM.baseLevel) DOM.baseLevel.textContent = base.level;
         if (DOM.baseAttack) DOM.baseAttack.textContent = `+${base.attackBonus}%`;
         if (DOM.baseIncome) DOM.baseIncome.textContent = `+${CONFIG.GAME.BASE_INCOME + base.incomeBonus}`;
-        if (DOM.availableSlots) DOM.availableSlots.textContent = `${base.availableSlots}/${base.maxSlots}`;
         if (DOM.baseUpgradeCost) DOM.baseUpgradeCost.textContent = base.upgradeCost;
+        updateAvailableSlots();
+        updateDronesUI();
+    }
+    
+    function updateAvailableSlots() {
+        const occupied = GameState.buildSpots.filter(spot => spot.occupied).length;
+        if (DOM.availableSlots) DOM.availableSlots.textContent = `${occupied}/${GameState.base.availableSlots}`;
     }
     
     function upgradeBase() {
