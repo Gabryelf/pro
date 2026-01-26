@@ -14,7 +14,9 @@ document.addEventListener('DOMContentLoaded', () => {
             GAME_SPEED: 1.0,
             ENEMY_SPAWN_INTERVAL: 2000,
             BASE_INCOME: 50,
-            DRONES_PER_LEVEL: 2
+            DRONES_PER_LEVEL: 2,
+            SATELLITE_COST: 75,
+            HARVESTER_COST: 100
         },
         
         STATIONS: {
@@ -60,21 +62,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 color: '#ffd700',
                 icon: 'bolt-lightning',
                 sellRatio: 0.6
-            }
-        },
-        
-        PREMIUM_STATIONS: {
+            },
             QUANTUM: {
                 name: 'Квантовый луч',
-                crystalCost: 50,
-                creditsCost: 800,
+                cost: 800,
                 damage: 60,
                 range: 200,
                 fireRate: 1500,
                 color: '#9d4edd',
                 icon: 'atom',
-                unlocked: false,
-                description: 'Мощный луч с проникающей способностью'
+                sellRatio: 0.6,
+                isPremium: true,
+                crystalCost: 50
+            },
+            CRYSTAL: {
+                name: 'Кристальный эмиттер',
+                cost: 600,
+                damage: 35,
+                range: 220,
+                fireRate: 1000,
+                color: '#00ffff',
+                icon: 'gem',
+                sellRatio: 0.6,
+                isPremium: true,
+                crystalCost: 75
+            },
+            GRAVITY: {
+                name: 'Гравитационная пушка',
+                cost: 900,
+                damage: 100,
+                range: 180,
+                fireRate: 2500,
+                color: '#ff00ff',
+                icon: 'compass',
+                sellRatio: 0.6,
+                isPremium: true,
+                crystalCost: 100
             }
         },
         
@@ -100,6 +123,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 crystals: 2,
                 armor: 10,
                 spawnWeight: 25
+            },
+            TANK: {
+                name: 'Танк',
+                health: 500,
+                speed: 0.8,
+                size: 20,
+                color: '#ff3333',
+                credits: 100,
+                crystals: 5,
+                armor: 30,
+                spawnWeight: 10
             }
         },
         
@@ -148,6 +182,8 @@ document.addEventListener('DOMContentLoaded', () => {
         enemiesSpawned: 0,
         enemiesKilledThisWave: 0,
         enemiesThisWave: 10,
+        waveEnemiesAlive: 10,
+        waveEnemiesKilled: 0,
         enemySpawnTimer: 0,
         waveEnemyTypes: [],
         waveDamageTaken: 0,
@@ -165,7 +201,10 @@ document.addEventListener('DOMContentLoaded', () => {
             LASER: true,
             PLASMA: true,
             RAILGUN: true,
-            TESLA: true
+            TESLA: true,
+            QUANTUM: false,
+            CRYSTAL: false,
+            GRAVITY: false
         },
         purchasedItems: JSON.parse(localStorage.getItem('cosmic_purchases')) || {},
         
@@ -174,87 +213,99 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     // ==================== DOM ЭЛЕМЕНТЫ ====================
-    const DOM = {
-        canvas: document.getElementById('gameCanvas'),
-        ctx: null,
-        lives: document.getElementById('lives'),
-        gold: document.getElementById('gold'),
-        set: document.getElementById('set'),
-        highscore: document.getElementById('highscore'),
-        waveProgress: document.getElementById('waveProgressMini'),
-        enemiesLeft: document.getElementById('enemiesLeftMini'),
-        enemiesKilled: document.getElementById('floatingKills'),
-        startWaveBtn: document.getElementById('startWave'),
-        pauseGameBtn: document.getElementById('pauseGame'),
-        fastForwardBtn: document.getElementById('fastForward'),
-        infoBtn: document.getElementById('infoBtn'),
-        shopBtn: document.getElementById('shopBtn'),
-        upgradeTowerBtn: document.getElementById('upgradeTower'),
-        sellTowerBtn: document.getElementById('sellTower'),
-        closeTowerInfoBtn: document.getElementById('closeTowerInfo'),
-        towerInfoPanel: document.getElementById('towerInfoPanel'),
-        towerName: document.getElementById('towerName'),
-        towerLevel: document.getElementById('towerLevel'),
-        towerDamage: document.getElementById('towerDamage'),
-        towerRange: document.getElementById('towerRange'),
-        towerSpeed: document.getElementById('towerSpeed'),
-        upgradeCost: document.getElementById('upgradeCost'),
-        sellValue: document.getElementById('sellValue'),
-        selectionIndicator: document.getElementById('selectionIndicator'),
-        selectionText: document.getElementById('selectionText'),
-        messageText: document.getElementById('messageText'),
-        wavePreview: document.getElementById('wavePreview'),
-        baseLevel: document.getElementById('baseLevel'),
-        baseAttack: document.getElementById('baseAttack'),
-        baseIncome: document.getElementById('baseIncome'),
-        availableSlots: document.getElementById('availableSlots'),
-        upgradeBaseBtn: document.getElementById('upgradeBase'),
-        baseUpgradeCost: document.getElementById('baseUpgradeCost'),
-        infoModal: document.getElementById('infoModal'),
-        closeModalBtn: document.getElementById('closeModal'),
-        modalBody: document.getElementById('modalBody'),
-        shopModal: document.getElementById('shopModal'),
-        closeShopBtn: document.getElementById('closeShop'),
-        shopItems: document.getElementById('shopItems'),
-        crystalsAmount: document.getElementById('crystalsAmount'),
-        stationItems: document.querySelectorAll('.station-item'),
-        currentWaveSidebar: document.getElementById('currentWaveSidebar'),
-        floatingEnemies: document.getElementById('floatingEnemies'),
-        gameOverModal: document.getElementById('gameOverModal'),
-        restartGameBtn: document.getElementById('restartGame'),
-        gameOverSet: document.getElementById('gameOverSet'),
-        gameOverWave: document.getElementById('gameOverWave'),
-        gameOverCredits: document.getElementById('gameOverCredits'),
-        gameOverKills: document.getElementById('gameOverKills'),
-        dronesCounter: document.getElementById('dronesCounter'),
-        dronesCount: document.getElementById('dronesCount'),
-        maxDrones: document.getElementById('maxDrones')
-    };
+    let DOM = {};
     
-    DOM.ctx = DOM.canvas.getContext('2d');
+    function initDOM() {
+        DOM = {
+            canvas: document.getElementById('gameCanvas'),
+            ctx: null,
+            lives: document.getElementById('lives'),
+            gold: document.getElementById('gold'),
+            set: document.getElementById('set'),
+            highscore: document.getElementById('highscore'),
+            waveProgress: document.getElementById('waveProgressMini'),
+            enemiesLeft: document.getElementById('enemiesLeftMini'),
+            enemiesKilled: document.getElementById('floatingKills'),
+            startWaveBtn: document.getElementById('startWave'),
+            pauseGameBtn: document.getElementById('pauseGame'),
+            fastForwardBtn: document.getElementById('fastForward'),
+            infoBtn: document.getElementById('infoBtn'),
+            shopBtn: document.getElementById('shopBtn'),
+            upgradeTowerBtn: document.getElementById('upgradeTower'),
+            sellTowerBtn: document.getElementById('sellTower'),
+            closeTowerInfoBtn: document.getElementById('closeTowerInfo'),
+            towerInfoPanel: document.getElementById('towerInfoPanel'),
+            towerName: document.getElementById('towerName'),
+            towerLevel: document.getElementById('towerLevel'),
+            towerDamage: document.getElementById('towerDamage'),
+            towerRange: document.getElementById('towerRange'),
+            towerSpeed: document.getElementById('towerSpeed'),
+            upgradeCost: document.getElementById('upgradeCost'),
+            sellValue: document.getElementById('sellValue'),
+            selectionIndicator: document.getElementById('selectionIndicator'),
+            selectionText: document.getElementById('selectionText'),
+            messageText: document.getElementById('messageText'),
+            wavePreview: document.getElementById('wavePreview'),
+            baseLevel: document.getElementById('baseLevel'),
+            baseAttack: document.getElementById('baseAttack'),
+            baseIncome: document.getElementById('baseIncome'),
+            availableSlots: document.getElementById('availableSlots'),
+            upgradeBaseBtn: document.getElementById('upgradeBase'),
+            baseUpgradeCost: document.getElementById('baseUpgradeCost'),
+            infoModal: document.getElementById('infoModal'),
+            closeModalBtn: document.getElementById('closeModal'),
+            modalBody: document.getElementById('modalBody'),
+            shopModal: document.getElementById('shopModal'),
+            closeShopBtn: document.getElementById('closeShop'),
+            shopItems: document.getElementById('shopItems'),
+            crystalsAmount: document.getElementById('crystalsAmount'),
+            stationsGrid: document.getElementById('stationsGrid'),
+            currentWaveSidebar: document.getElementById('currentWaveSidebar'),
+            floatingEnemies: document.getElementById('floatingEnemies'),
+            gameOverModal: document.getElementById('gameOverModal'),
+            restartGameBtn: document.getElementById('restartGame'),
+            gameOverSet: document.getElementById('gameOverSet'),
+            gameOverWave: document.getElementById('gameOverWave'),
+            gameOverCredits: document.getElementById('gameOverCredits'),
+            gameOverKills: document.getElementById('gameOverKills'),
+            gameOverCrystals: document.getElementById('gameOverCrystals'),
+            gameOverSatellites: document.getElementById('gameOverSatellites'),
+            dronesCountMini: document.getElementById('dronesCountMini'),
+            maxDronesMini: document.getElementById('maxDronesMini'),
+            waveAttacking: document.getElementById('waveAttacking'),
+            waveKilled: document.getElementById('waveKilled'),
+            currentWave: document.getElementById('currentWave'),
+            floatingSet: document.getElementById('floatingSet'),
+            floatingWave: document.getElementById('floatingWave'),
+            waveStageDisplay: null
+        };
+        
+        DOM.ctx = DOM.canvas.getContext('2d');
+    }
     
     // ==================== ИНИЦИАЛИЗАЦИЯ ====================
     function init() {
         console.log('🚀 Инициализация игры...');
         
+        initDOM();
         setupCanvas();
         initGameField();
         generateBuildSpots();
         setupEventListeners();
         
         loadPurchasedItems();
+        updateStationsShop();
         
         DOM.highscore.textContent = GameState.highScore;
         DOM.crystalsAmount.textContent = GameState.crystals;
         updateUI();
         generateWavePreview();
         initInfoModal();
-        initShop();
         
         createBaseDrones();
         generatePaths();
         
-        showMessage('🚀 Добро пожаловать в Cosmic Defender!', 'info');
+        showMessage('🚀 Добро пожаловать в Cosmic Defender! Выберите станцию и нажмите СТАРТ', 'info');
         
         requestAnimationFrame(gameLoop);
         console.log('✅ Игра инициализирована!');
@@ -262,8 +313,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function setupCanvas() {
         const container = document.querySelector('.game-board');
-        DOM.canvas.width = container.clientWidth;
-        DOM.canvas.height = container.clientHeight;
+        const header = document.querySelector('.header');
+        const footer = document.querySelector('.game-footer-mini');
+        
+        const availableHeight = window.innerHeight - header.offsetHeight - footer.offsetHeight - 24;
+        const availableWidth = container.clientWidth;
+        
+        DOM.canvas.width = Math.max(800, availableWidth);
+        DOM.canvas.height = Math.max(600, availableHeight);
+        
         console.log(`📐 Канвас: ${DOM.canvas.width}x${DOM.canvas.height}`);
     }
     
@@ -300,7 +358,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const centerX = DOM.canvas.width / 2;
         const centerY = DOM.canvas.height / 2;
         const minRadius = 150;
-        const maxRadius = 350;
+        const maxRadius = Math.min(350, centerY - 100);
         
         while (GameState.availableBuildSpots.length < GameState.base.availableSlots) {
             const angle = Math.random() * Math.PI * 2;
@@ -376,7 +434,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         for (let i = 0; i < pathCount; i++) {
             const angle = (i / pathCount) * Math.PI * 2;
-            const startDistance = 600;
+            const startDistance = Math.min(600, DOM.canvas.width * 0.4);
             
             const path = [
                 {
@@ -403,7 +461,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 GameState.pathArrows.push({
                     pathIndex: i,
                     progress: j / 5,
-                    offset: Math.random() * 0.2
+                    offset: Math.random() * 0.2,
+                    alpha: 0.3 + Math.random() * 0.4,
+                    pulseSpeed: 0.5 + Math.random() * 0.5
                 });
             }
         }
@@ -411,19 +471,6 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // ==================== СОБЫТИЯ ====================
     function setupEventListeners() {
-        // Выбор станций
-        DOM.stationItems.forEach(item => {
-            item.addEventListener('click', () => selectTowerFromShop(item));
-        });
-        
-        // Взаимодействие с канвасом
-        DOM.canvas.addEventListener('click', handleCanvasClick);
-        DOM.canvas.addEventListener('mousemove', handleCanvasMouseMove);
-        DOM.canvas.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            clearSelection();
-        });
-        
         // Управление
         DOM.startWaveBtn.addEventListener('click', startWave);
         DOM.pauseGameBtn.addEventListener('click', togglePause);
@@ -441,11 +488,23 @@ document.addEventListener('DOMContentLoaded', () => {
         DOM.upgradeBaseBtn.addEventListener('click', upgradeBase);
         DOM.restartGameBtn.addEventListener('click', resetGame);
         
+        // Взаимодействие с канвасом
+        DOM.canvas.addEventListener('click', handleCanvasClick);
+        DOM.canvas.addEventListener('mousemove', handleCanvasMouseMove);
+        DOM.canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            clearSelection();
+        });
+        
         // Горячие клавиши
         document.addEventListener('keydown', handleKeyPress);
         
-        // Ресайз
-        window.addEventListener('resize', handleResize);
+        // Ресайз с debounce
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(handleResize, 100);
+        });
         
         // Клик по overlay
         DOM.infoModal.addEventListener('click', (e) => {
@@ -474,17 +533,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateShop(tab.dataset.tab);
             });
         });
+        
+        // Выбор станций
+        document.addEventListener('click', (e) => {
+            const stationItem = e.target.closest('.station-item');
+            if (stationItem && !stationItem.classList.contains('locked')) {
+                selectTowerFromShop(stationItem);
+            }
+        });
     }
     
     function selectTowerFromShop(item) {
-        console.log('Выбор станции:', item.dataset.type);
-        
         if (GameState.isWaveActive) {
             showMessage('⚠️ Нельзя строить во время волны!', 'warning');
             return;
         }
         
-        const type = item.dataset.type;
+        const type = item.dataset.type.toUpperCase();
         const config = getStationConfig(type);
         
         if (!config) {
@@ -492,7 +557,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        DOM.stationItems.forEach(i => i.classList.remove('selected'));
+        if (config.isPremium && !GameState.unlockedStations[type]) {
+            showMessage('❌ Эта станция не разблокирована! Купите в магазине.', 'error');
+            return;
+        }
+        
+        document.querySelectorAll('.station-item').forEach(i => i.classList.remove('selected'));
         item.classList.add('selected');
         
         GameState.selectedStationType = type;
@@ -506,8 +576,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const rect = DOM.canvas.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
-        
-        console.log('Клик по канвасу:', x, y, 'Выбранная станция:', GameState.selectedStationType);
         
         if (GameState.selectedStationType && !GameState.isWaveActive) {
             placeStation(x, y);
@@ -593,6 +661,14 @@ document.addEventListener('DOMContentLoaded', () => {
         initGameField();
         generateBuildSpots();
         generatePaths();
+        
+        // Обновляем позиции станций
+        GameState.stations.forEach(station => {
+            if (station.cell) {
+                station.x = station.cell.x + station.cell.width / 2;
+                station.y = station.cell.y + station.cell.height / 2;
+            }
+        });
     }
     
     // ==================== ИГРОВАЯ ЛОГИКА ====================
@@ -612,6 +688,11 @@ document.addEventListener('DOMContentLoaded', () => {
             updateStations();
             updateProjectiles();
             updateBaseDrones();
+            updateSatellites();
+            updateHarvesters();
+            
+            if (DOM.waveAttacking) DOM.waveAttacking.textContent = GameState.waveEnemiesAlive;
+            if (DOM.waveKilled) DOM.waveKilled.textContent = GameState.waveEnemiesKilled;
             
             if (GameState.isWaveActive && 
                 GameState.enemiesSpawned >= GameState.enemiesThisWave && 
@@ -642,6 +723,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (particle.life > 0) {
                 particle.opacity = particle.life / 40;
             }
+            
+            // Удаляем частицы за пределами экрана
+            if (particle.x < -50 || particle.x > DOM.canvas.width + 50 || 
+                particle.y < -50 || particle.y > DOM.canvas.height + 50) {
+                GameState.particles.splice(i, 1);
+            }
         }
     }
     
@@ -656,7 +743,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         const progress = (GameState.enemiesSpawned / GameState.enemiesThisWave) * 100;
-        DOM.waveProgress.style.width = `${progress}%`;
+        if (DOM.waveProgress) {
+            DOM.waveProgress.style.width = `${progress}%`;
+        }
+        
+        GameState.waveEnemiesAlive = GameState.enemies.length;
+        updateEnemiesUI();
     }
     
     function spawnEnemy() {
@@ -685,7 +777,8 @@ document.addEventListener('DOMContentLoaded', () => {
             path: path,
             rotation: 0,
             reachedEnd: false,
-            pathId: pathIndex
+            pathId: pathIndex,
+            type: enemyType
         };
         
         GameState.enemies.push(enemy);
@@ -700,9 +793,25 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const multiplier = 1 + (set - 1) * 0.3;
         GameState.enemiesThisWave = Math.floor((8 + Math.floor(wave * 1.2)) * multiplier);
+        GameState.waveEnemiesAlive = GameState.enemiesThisWave;
         
-        const types = [CONFIG.ENEMY_TYPES.SCOUT, CONFIG.ENEMY_TYPES.FIGHTER];
-        const weights = [70, 30];
+        // Определяем типы врагов для этой волны
+        let types = [];
+        let weights = [];
+        
+        if (wave < 3) {
+            types = [CONFIG.ENEMY_TYPES.SCOUT];
+            weights = [100];
+        } else if (wave < 5) {
+            types = [CONFIG.ENEMY_TYPES.SCOUT, CONFIG.ENEMY_TYPES.FIGHTER];
+            weights = [70, 30];
+        } else if (wave < 8) {
+            types = [CONFIG.ENEMY_TYPES.SCOUT, CONFIG.ENEMY_TYPES.FIGHTER];
+            weights = [50, 50];
+        } else {
+            types = [CONFIG.ENEMY_TYPES.SCOUT, CONFIG.ENEMY_TYPES.FIGHTER, CONFIG.ENEMY_TYPES.TANK];
+            weights = [40, 40, 20];
+        }
         
         for (let i = 0; i < GameState.enemiesThisWave; i++) {
             let random = Math.random() * 100;
@@ -724,8 +833,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function updateEnemiesUI() {
         const enemiesLeft = Math.max(0, GameState.enemiesThisWave - GameState.enemiesKilledThisWave);
-        DOM.enemiesLeft.textContent = enemiesLeft;
-        DOM.floatingEnemies.textContent = enemiesLeft;
+        if (DOM.enemiesLeft) DOM.enemiesLeft.textContent = enemiesLeft;
+        if (DOM.floatingEnemies) DOM.floatingEnemies.textContent = enemiesLeft;
     }
     
     function updateEnemies() {
@@ -781,6 +890,7 @@ document.addEventListener('DOMContentLoaded', () => {
         createExplosion(enemy.x, enemy.y, enemy.color);
         
         GameState.enemies.splice(index, 1);
+        GameState.waveEnemiesAlive = GameState.enemies.length;
         
         showMessage(`💥 ${enemy.name} прорвался к базе! -${Math.floor(damage)} щитов.`, 'error');
         updateUI();
@@ -794,14 +904,23 @@ document.addEventListener('DOMContentLoaded', () => {
         const creditsEarned = enemy.credits;
         GameState.credits += creditsEarned;
         GameState.enemiesKilledThisWave++;
+        GameState.waveEnemiesKilled++;
+        
+        if (Math.random() < 0.3) {
+            const crystals = enemy.crystals;
+            GameState.crystals += crystals;
+            if (DOM.crystalsAmount) DOM.crystalsAmount.textContent = GameState.crystals;
+            createCrystalEffect(enemy.x, enemy.y, crystals);
+        }
         
         createExplosion(enemy.x, enemy.y, enemy.color);
         createCreditEffect(enemy.x, enemy.y, creditsEarned);
         
         GameState.enemies.splice(index, 1);
+        GameState.waveEnemiesAlive = GameState.enemies.length;
         
         updateUI();
-        DOM.enemiesKilled.textContent = GameState.enemiesKilledThisWave;
+        if (DOM.enemiesKilled) DOM.enemiesKilled.textContent = GameState.enemiesKilledThisWave;
         updateEnemiesUI();
     }
     
@@ -851,6 +970,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    function createCrystalEffect(x, y, amount) {
+        for (let i = 0; i < 5; i++) {
+            GameState.particles.push({
+                x,
+                y,
+                size: Math.random() * 4 + 2,
+                speedX: (Math.random() - 0.5) * 3,
+                speedY: Math.random() * -4 - 1,
+                color: '#9d4edd',
+                opacity: 1,
+                life: 50,
+                isCrystal: true
+            });
+        }
+    }
+    
     // ==================== СТАНЦИИ ====================
     function placeStation(x, y) {
         const cell = findCellAtPosition(x, y);
@@ -877,7 +1012,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        const cost = config.cost || config.creditsCost;
+        const cost = config.cost;
         
         if (GameState.credits < cost) {
             showMessage(`❌ Недостаточно кредитов! Нужно ${cost}`, 'error');
@@ -885,6 +1020,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         const station = {
+            id: Date.now() + Math.random(),
             x: cell.x + cell.width / 2,
             y: cell.y + cell.height / 2,
             type: GameState.selectedStationType,
@@ -900,7 +1036,8 @@ document.addEventListener('DOMContentLoaded', () => {
             cell: cell,
             icon: config.icon,
             sellValue: Math.floor(cost * 0.6),
-            isPremium: GameState.selectedStationType in CONFIG.PREMIUM_STATIONS
+            isPremium: config.isPremium || false,
+            upgradeCount: 0
         };
         
         GameState.stations.push(station);
@@ -986,6 +1123,7 @@ document.addEventListener('DOMContentLoaded', () => {
         GameState.credits -= upgradeCost;
         
         station.level++;
+        station.upgradeCount++;
         station.damage = Math.floor(station.damage * 1.4);
         station.range = Math.floor(station.range * 1.05);
         station.fireRate = Math.max(400, station.fireRate * 0.95);
@@ -1220,8 +1358,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function updateDronesUI() {
-        DOM.dronesCount.textContent = GameState.base.drones;
-        DOM.maxDrones.textContent = GameState.base.maxDrones;
+        if (DOM.dronesCountMini) DOM.dronesCountMini.textContent = GameState.base.drones;
+        if (DOM.maxDronesMini) DOM.maxDronesMini.textContent = GameState.base.maxDrones;
     }
     
     // ==================== ОТРИСОВКА ====================
@@ -1252,20 +1390,29 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const gradient = DOM.ctx.createRadialGradient(
             DOM.canvas.width / 2, DOM.canvas.height / 2, 0,
-            DOM.canvas.width / 2, DOM.canvas.height / 2, DOM.canvas.width
+            DOM.canvas.width / 2, DOM.canvas.height / 2, Math.max(DOM.canvas.width, DOM.canvas.height)
         );
         gradient.addColorStop(0, 'rgba(10, 10, 42, 0.3)');
         gradient.addColorStop(1, 'rgba(0, 0, 16, 0.8)');
         DOM.ctx.fillStyle = gradient;
         DOM.ctx.fillRect(0, 0, DOM.canvas.width, DOM.canvas.height);
+        
+        GameState.particles.forEach(particle => {
+            if (particle.isStar) {
+                DOM.ctx.fillStyle = `rgba(255, 255, 255, ${particle.opacity})`;
+                DOM.ctx.beginPath();
+                DOM.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                DOM.ctx.fill();
+            }
+        });
     }
     
     function drawPaths() {
         GameState.currentPaths.forEach((path, pathIndex) => {
             if (path.length < 2) return;
             
-            DOM.ctx.strokeStyle = `rgba(0, 212, 255, 0.15)`;
-            DOM.ctx.lineWidth = 25;
+            DOM.ctx.strokeStyle = `rgba(0, 212, 255, 0.08)`;
+            DOM.ctx.lineWidth = 30;
             DOM.ctx.lineCap = 'round';
             DOM.ctx.lineJoin = 'round';
             
@@ -1276,12 +1423,71 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             DOM.ctx.stroke();
             
-            DOM.ctx.strokeStyle = `rgba(0, 255, 157, 0.2)`;
-            DOM.ctx.lineWidth = 3;
+            DOM.ctx.strokeStyle = `rgba(0, 255, 157, 0.15)`;
+            DOM.ctx.lineWidth = 2;
             DOM.ctx.setLineDash([10, 5]);
             DOM.ctx.stroke();
             DOM.ctx.setLineDash([]);
         });
+        
+        GameState.pathArrows.forEach(arrow => {
+            const path = GameState.currentPaths[arrow.pathIndex];
+            if (!path || path.length < 2) return;
+            
+            const totalLength = getPathLength(path);
+            const targetLength = totalLength * arrow.progress;
+            
+            let accumulated = 0;
+            let pointIndex = 0;
+            let pos = { x: path[0].x, y: path[0].y };
+            
+            for (let i = 1; i < path.length; i++) {
+                const segmentLength = Math.sqrt(
+                    Math.pow(path[i].x - path[i-1].x, 2) + 
+                    Math.pow(path[i].y - path[i-1].y, 2)
+                );
+                
+                if (accumulated + segmentLength >= targetLength) {
+                    const ratio = (targetLength - accumulated) / segmentLength;
+                    pos.x = path[i-1].x + (path[i].x - path[i-1].x) * ratio;
+                    pos.y = path[i-1].y + (path[i].y - path[i-1].y) * ratio;
+                    pointIndex = i - 1;
+                    break;
+                }
+                accumulated += segmentLength;
+            }
+            
+            const nextPoint = path[pointIndex + 1] || path[path.length - 1];
+            const angle = Math.atan2(nextPoint.y - pos.y, nextPoint.x - pos.x);
+            
+            const pulse = Math.sin(GameState.animationTime * 0.001 * arrow.pulseSpeed + arrow.offset) * 0.3 + 0.4;
+            arrow.alpha = pulse;
+            
+            DOM.ctx.save();
+            DOM.ctx.translate(pos.x, pos.y);
+            DOM.ctx.rotate(angle);
+            DOM.ctx.fillStyle = `rgba(255, 215, 0, ${arrow.alpha})`;
+            
+            DOM.ctx.beginPath();
+            DOM.ctx.moveTo(0, -8);
+            DOM.ctx.lineTo(15, 0);
+            DOM.ctx.lineTo(0, 8);
+            DOM.ctx.closePath();
+            DOM.ctx.fill();
+            
+            DOM.ctx.restore();
+        });
+    }
+    
+    function getPathLength(path) {
+        let length = 0;
+        for (let i = 1; i < path.length; i++) {
+            length += Math.sqrt(
+                Math.pow(path[i].x - path[i-1].x, 2) + 
+                Math.pow(path[i].y - path[i-1].y, 2)
+            );
+        }
+        return length;
     }
     
     function drawBuildSpots() {
@@ -1379,12 +1585,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function drawParticles() {
         GameState.particles.forEach(particle => {
-            if (particle.isStar) {
-                DOM.ctx.fillStyle = `rgba(255, 255, 255, ${particle.opacity})`;
-                DOM.ctx.beginPath();
-                DOM.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-                DOM.ctx.fill();
-            } else {
+            if (!particle.isStar) {
                 DOM.ctx.fillStyle = particle.color;
                 DOM.ctx.globalAlpha = particle.opacity;
                 DOM.ctx.beginPath();
@@ -1495,58 +1696,221 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function updateShop(tab = 'weapons') {
+        if (!DOM.shopItems) return;
+        
         DOM.shopItems.innerHTML = '';
         
-        switch(tab) {
-            case 'weapons':
-                renderWeaponsShop();
-                break;
-        }
-    }
-    
-    function renderWeaponsShop() {
-        for (const [key, weapon] of Object.entries(CONFIG.PREMIUM_STATIONS)) {
-            const owned = GameState.purchasedItems[key] || false;
-            const canAfford = GameState.crystals >= weapon.crystalCost;
+        const shopData = {
+            weapons: [
+                {
+                    id: 'quantum',
+                    name: 'Квантовый луч',
+                    description: 'Мощный луч с проникающей способностью',
+                    crystalCost: 50,
+                    type: 'weapon'
+                },
+                {
+                    id: 'crystal',
+                    name: 'Кристальный эмиттер',
+                    description: 'Излучает кристальную энергию по нескольким целям',
+                    crystalCost: 75,
+                    type: 'weapon'
+                },
+                {
+                    id: 'gravity',
+                    name: 'Гравитационная пушка',
+                    description: 'Замедляет и наносит урон всем врагам в области',
+                    crystalCost: 100,
+                    type: 'weapon'
+                }
+            ],
+            satellites: [
+                {
+                    id: 'satellite1',
+                    name: 'Базовый спутник',
+                    description: 'Автономный защитник с лазерным вооружением',
+                    crystalCost: 25,
+                    type: 'satellite'
+                }
+            ],
+            harvesters: [
+                {
+                    id: 'harvester1',
+                    name: 'Базовый харвестер',
+                    description: 'Собирает кристаллы из космоса',
+                    crystalCost: 30,
+                    type: 'harvester'
+                }
+            ],
+            cosmetics: [
+                {
+                    id: 'skin1',
+                    name: 'Золотая база',
+                    description: 'Эксклюзивный скин для базы',
+                    crystalCost: 150,
+                    type: 'cosmetic'
+                }
+            ]
+        };
+        
+        const items = shopData[tab] || [];
+        
+        items.forEach(item => {
+            const owned = GameState.purchasedItems[item.id] || false;
+            const canAfford = GameState.crystals >= item.crystalCost;
             
             const div = document.createElement('div');
             div.className = `shop-item ${owned ? 'owned' : ''} ${!canAfford && !owned ? 'locked' : ''}`;
             
             div.innerHTML = `
-                <div class="shop-item-icon weapon">
-                    <i class="fas fa-${weapon.icon}"></i>
+                <div class="shop-item-icon ${item.type}">
+                    <i class="fas fa-${getShopItemIcon(item)}"></i>
                 </div>
-                <div class="shop-item-name">${weapon.name}</div>
-                <div class="shop-item-desc">${weapon.description}</div>
+                <div class="shop-item-name">${item.name}</div>
+                <div class="shop-item-desc">${item.description}</div>
                 <div class="shop-item-price">
                     ${owned ? '<i class="fas fa-check"></i> КУПЛЕНО' : 
-                    `${weapon.crystalCost} <i class="fas fa-gem"></i>`}
+                    `${item.crystalCost} <i class="fas fa-gem"></i>`}
                 </div>
                 ${!owned ? `
-                    <button class="buy-btn" ${canAfford ? '' : 'disabled'}
-                        onclick="buyItem('${key}', ${weapon.crystalCost}, 'weapon')">
+                    <button class="buy-btn" ${canAfford ? '' : 'disabled'}>
                         ${canAfford ? 'КУПИТЬ' : 'НЕДОСТАТОЧНО'}
                     </button>
                 ` : ''}
             `;
             
+            const buyBtn = div.querySelector('.buy-btn');
+            if (buyBtn && !owned) {
+                buyBtn.addEventListener('click', () => {
+                    buyItem(item.id, item.crystalCost, item.type);
+                });
+            }
+            
             DOM.shopItems.appendChild(div);
+        });
+    }
+    
+    function getShopItemIcon(item) {
+        switch(item.type) {
+            case 'weapon': return 'gun';
+            case 'satellite': return 'satellite';
+            case 'harvester': return 'coins';
+            case 'cosmetic': return 'palette';
+            default: return 'shopping-cart';
         }
     }
     
-    // Глобальные функции для магазина
-    window.buyItem = function(id, price, type) {
+    function updateStationsShop() {
+        if (!DOM.stationsGrid) return;
+        
+        DOM.stationsGrid.innerHTML = '';
+        
+        const baseStations = [
+            { key: 'LASER', config: CONFIG.STATIONS.LASER },
+            { key: 'PLASMA', config: CONFIG.STATIONS.PLASMA },
+            { key: 'RAILGUN', config: CONFIG.STATIONS.RAILGUN },
+            { key: 'TESLA', config: CONFIG.STATIONS.TESLA }
+        ];
+        
+        baseStations.forEach(({ key, config }) => {
+            const isUnlocked = GameState.unlockedStations[key];
+            const div = document.createElement('div');
+            div.className = `station-item ${isUnlocked ? 'unlocked' : ''}`;
+            div.dataset.type = key.toLowerCase();
+            div.dataset.cost = config.cost;
+            
+            div.innerHTML = `
+                <div class="station-icon ${key.toLowerCase()}-station">
+                    <i class="fas fa-${config.icon}"></i>
+                </div>
+                <div class="station-info">
+                    <span class="station-name">${config.name.split(' ')[0]}</span>
+                    <span class="station-cost">${config.cost} <i class="fas fa-coins"></i></span>
+                </div>
+                <div class="station-stats">
+                    <span class="stat-tag">⚡ ${config.damage} урон</span>
+                    <span class="stat-tag">📡 ${config.range}</span>
+                </div>
+            `;
+            
+            if (isUnlocked) {
+                div.addEventListener('click', () => selectTowerFromShop(div));
+            } else {
+                div.innerHTML += '<div class="station-locked">🔒</div>';
+                div.style.opacity = '0.6';
+                div.style.cursor = 'not-allowed';
+            }
+            
+            DOM.stationsGrid.appendChild(div);
+        });
+        
+        const premiumStations = [
+            { key: 'QUANTUM', config: CONFIG.STATIONS.QUANTUM },
+            { key: 'CRYSTAL', config: CONFIG.STATIONS.CRYSTAL },
+            { key: 'GRAVITY', config: CONFIG.STATIONS.GRAVITY }
+        ];
+        
+        premiumStations.forEach(({ key, config }) => {
+            if (!config) return;
+            
+            const isUnlocked = GameState.unlockedStations[key];
+            if (!isUnlocked) return;
+            
+            const div = document.createElement('div');
+            div.className = 'station-item unlocked premium';
+            div.dataset.type = key.toLowerCase();
+            div.dataset.cost = config.cost;
+            
+            div.innerHTML = `
+                <div class="station-icon ${key.toLowerCase()}-station">
+                    <i class="fas fa-${config.icon}"></i>
+                </div>
+                <div class="station-info">
+                    <span class="station-name">${config.name.split(' ')[0]}</span>
+                    <span class="station-cost">${config.cost} <i class="fas fa-coins"></i></span>
+                </div>
+                <div class="station-stats">
+                    <span class="stat-tag">⚡ ${config.damage} урон</span>
+                    <span class="stat-tag">💎 премиум</span>
+                </div>
+            `;
+            
+            div.addEventListener('click', () => selectTowerFromShop(div));
+            
+            DOM.stationsGrid.appendChild(div);
+        });
+    }
+    
+    function buyItem(id, price, type) {
         if (GameState.crystals < price) {
             showNotification('❌ Недостаточно кристаллов!', 'error');
             return;
         }
         
         GameState.crystals -= price;
-        DOM.crystalsAmount.textContent = GameState.crystals;
+        if (DOM.crystalsAmount) DOM.crystalsAmount.textContent = GameState.crystals;
         
-        if (type === 'weapon') {
-            GameState.unlockedStations[id] = true;
-            showNotification(`✅ ${CONFIG.PREMIUM_STATIONS[id].name} разблокирована!`, 'success');
+        switch(type) {
+            case 'weapon':
+                const weaponKey = id.toUpperCase();
+                GameState.unlockedStations[weaponKey] = true;
+                updateStationsShop();
+                showNotification(`✅ ${CONFIG.STATIONS[weaponKey].name} разблокирована!`, 'success');
+                break;
+                
+            case 'satellite':
+                createSatellite();
+                showNotification(`✅ Спутник добавлен!`, 'success');
+                break;
+                
+            case 'harvester':
+                createHarvester();
+                showNotification(`✅ Харвестер добавлен!`, 'success');
+                break;
+                
+            case 'cosmetic':
+                showNotification(`✅ Косметический предмет приобретен!`, 'success');
+                break;
         }
         
         GameState.purchasedItems[id] = true;
@@ -1554,18 +1918,103 @@ document.addEventListener('DOMContentLoaded', () => {
         
         updateShop();
         showMessage(`💎 Куплено: ${id}`, 'success');
-    };
+    }
+    
+    function createSatellite() {
+        const satellite = {
+            x: DOM.canvas.width / 2 + (Math.random() - 0.5) * 100,
+            y: DOM.canvas.height / 2 + (Math.random() - 0.5) * 100,
+            angle: Math.random() * Math.PI * 2,
+            speed: 0.5,
+            range: 150,
+            damage: 20,
+            lastShot: 0,
+            fireRate: 2000
+        };
+        
+        GameState.satellites.push(satellite);
+    }
+    
+    function createHarvester() {
+        const harvester = {
+            x: DOM.canvas.width / 2 + (Math.random() - 0.5) * 200,
+            y: DOM.canvas.height / 2 + (Math.random() - 0.5) * 200,
+            angle: Math.random() * Math.PI * 2,
+            speed: 0.3
+        };
+        
+        GameState.harvesters.push(harvester);
+    }
+    
+    function updateSatellites() {
+        GameState.satellites.forEach(satellite => {
+            satellite.angle += 0.01;
+            satellite.x = DOM.canvas.width / 2 + Math.cos(satellite.angle) * 200;
+            satellite.y = DOM.canvas.height / 2 + Math.sin(satellite.angle) * 200;
+            
+            const currentTime = Date.now();
+            if (currentTime - satellite.lastShot > satellite.fireRate) {
+                for (const enemy of GameState.enemies) {
+                    const dx = enemy.x - satellite.x;
+                    const dy = enemy.y - satellite.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < satellite.range) {
+                        enemy.health -= satellite.damage;
+                        satellite.lastShot = currentTime;
+                        
+                        GameState.projectiles.push({
+                            x: satellite.x,
+                            y: satellite.y,
+                            target: enemy,
+                            damage: satellite.damage,
+                            color: '#00bfff',
+                            speed: 8,
+                            size: 4,
+                            fromStation: null
+                        });
+                        break;
+                    }
+                }
+            }
+        });
+    }
+    
+    function updateHarvesters() {
+        GameState.harvesters.forEach(harvester => {
+            harvester.angle += (Math.random() - 0.5) * 0.1;
+            const moveDistance = harvester.speed * (GameState.deltaTime / 16) * CONFIG.GAME.GAME_SPEED;
+            
+            harvester.x += Math.cos(harvester.angle) * moveDistance;
+            harvester.y += Math.sin(harvester.angle) * moveDistance;
+            
+            harvester.x = Math.max(50, Math.min(DOM.canvas.width - 50, harvester.x));
+            harvester.y = Math.max(50, Math.min(DOM.canvas.height - 50, harvester.y));
+            
+            for (const enemy of GameState.enemies) {
+                const dx = enemy.x - harvester.x;
+                const dy = enemy.y - harvester.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < 100) {
+                    harvester.angle = Math.atan2(harvester.y - enemy.y, harvester.x - enemy.x);
+                    break;
+                }
+            }
+        });
+    }
     
     function loadPurchasedItems() {
         try {
             const saved = JSON.parse(localStorage.getItem('cosmic_purchases')) || {};
             GameState.purchasedItems = saved;
             
-            for (const [key, weapon] of Object.entries(CONFIG.PREMIUM_STATIONS)) {
-                if (saved[key]) {
-                    GameState.unlockedStations[key] = true;
+            Object.keys(saved).forEach(key => {
+                const weaponKey = key.toUpperCase();
+                if (CONFIG.STATIONS[weaponKey]) {
+                    GameState.unlockedStations[weaponKey] = true;
                 }
-            }
+            });
         } catch (e) {
             console.error('Ошибка загрузки покупок:', e);
         }
@@ -1580,6 +2029,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function initInfoModal() {
+        if (!DOM.modalBody) return;
+        
         DOM.modalBody.innerHTML = `
             <div class="modal-section">
                 <h3><i class="fas fa-gamepad"></i> Управление</h3>
@@ -1645,14 +2096,14 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // ==================== УПРАВЛЕНИЕ ИГРОЙ ====================
     function startWave() {
-        console.log('Начало волны');
         if (GameState.isWaveActive || GameState.gameOver) {
-            console.log('Волна уже идет или игра окончена');
             return;
         }
         
         GameState.enemiesSpawned = 0;
         GameState.enemiesKilledThisWave = 0;
+        GameState.waveEnemiesKilled = 0;
+        GameState.waveEnemiesAlive = GameState.enemiesThisWave;
         GameState.waveDamageTaken = 0;
         GameState.isWaveActive = true;
         GameState.waveEnemyTypes = [];
@@ -1660,11 +2111,14 @@ document.addEventListener('DOMContentLoaded', () => {
         DOM.startWaveBtn.disabled = true;
         DOM.startWaveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> БОЙ';
         
+        // Обновляем отображение текущей волны в floating элементах
+        if (DOM.floatingSet) DOM.floatingSet.textContent = GameState.currentSet;
+        if (DOM.floatingWave) DOM.floatingWave.textContent = GameState.currentWave;
+        
         showMessage(`⚡ Волна ${GameState.currentWave} началась! Уничтожьте ${GameState.enemiesThisWave} врагов.`, 'warning');
     }
     
     function completeWave() {
-        console.log('Завершение волны');
         GameState.isWaveActive = false;
         
         const waveReward = CONFIG.GAME.BASE_INCOME + GameState.base.incomeBonus + GameState.currentWave * 10;
@@ -1673,7 +2127,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (GameState.waveDamageTaken === 0) {
             const crystalReward = Math.floor(GameState.currentWave / 2) + 5;
             GameState.crystals += crystalReward;
-            DOM.crystalsAmount.textContent = GameState.crystals;
+            if (DOM.crystalsAmount) DOM.crystalsAmount.textContent = GameState.crystals;
             
             showNotification(`💎 +${crystalReward} кристаллов за безупречную защиту!`, 'crystal');
         }
@@ -1688,15 +2142,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (GameState.currentSet > GameState.highScore) {
             GameState.highScore = GameState.currentSet;
             localStorage.setItem('cosmic_highscore', GameState.highScore);
-            DOM.highscore.textContent = GameState.highScore;
+            if (DOM.highscore) DOM.highscore.textContent = GameState.highScore;
         }
         
         localStorage.setItem('cosmic_crystals', GameState.crystals);
         
         DOM.startWaveBtn.disabled = false;
         DOM.startWaveBtn.innerHTML = '<i class="fas fa-play"></i> СТАРТ';
-        DOM.waveProgress.style.width = '0%';
-        DOM.currentWaveSidebar.textContent = GameState.currentWave;
+        if (DOM.waveProgress) DOM.waveProgress.style.width = '0%';
+        if (DOM.currentWaveSidebar) DOM.currentWaveSidebar.textContent = GameState.currentWave;
+        if (DOM.currentWave) DOM.currentWave.textContent = GameState.currentWave;
+        if (DOM.floatingSet) DOM.floatingSet.textContent = GameState.currentSet;
+        if (DOM.floatingWave) DOM.floatingWave.textContent = GameState.currentWave;
         
         generateWavePreview();
         
@@ -1723,7 +2180,9 @@ document.addEventListener('DOMContentLoaded', () => {
         
         DOM.startWaveBtn.disabled = false;
         DOM.startWaveBtn.innerHTML = '<i class="fas fa-play"></i> СТАРТ';
-        DOM.set.textContent = `${GameState.currentSet}/${CONFIG.GAME.MAX_SETS}`;
+        if (DOM.set) DOM.set.textContent = `${GameState.currentSet}/${CONFIG.GAME.MAX_SETS}`;
+        if (DOM.floatingSet) DOM.floatingSet.textContent = GameState.currentSet;
+        if (DOM.floatingWave) DOM.floatingWave.textContent = GameState.currentWave;
     }
     
     function endGame(isVictory) {
@@ -1731,14 +2190,16 @@ document.addEventListener('DOMContentLoaded', () => {
         GameState.gameOver = true;
         GameState.gameWon = isVictory;
         
-        DOM.gameOverSet.textContent = GameState.currentSet - (isVictory ? 1 : 0);
-        DOM.gameOverWave.textContent = GameState.currentWave - 1;
-        DOM.gameOverCredits.textContent = GameState.credits;
-        DOM.gameOverKills.textContent = GameState.enemiesKilledThisWave;
+        if (DOM.gameOverSet) DOM.gameOverSet.textContent = GameState.currentSet - (isVictory ? 1 : 0);
+        if (DOM.gameOverWave) DOM.gameOverWave.textContent = GameState.currentWave - 1;
+        if (DOM.gameOverCredits) DOM.gameOverCredits.textContent = GameState.credits;
+        if (DOM.gameOverKills) DOM.gameOverKills.textContent = GameState.enemiesKilledThisWave;
+        if (DOM.gameOverCrystals) DOM.gameOverCrystals.textContent = GameState.crystals;
+        if (DOM.gameOverSatellites) DOM.gameOverSatellites.textContent = GameState.satellites.length;
         
         localStorage.setItem('cosmic_crystals', GameState.crystals);
         
-        DOM.gameOverModal.style.display = 'flex';
+        if (DOM.gameOverModal) DOM.gameOverModal.style.display = 'flex';
         
         if (isVictory) {
             showMessage('🎉 ПОБЕДА! Все сеты пройдены!', 'victory');
@@ -1753,6 +2214,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function resetGame() {
         GameState.shields = CONFIG.GAME.START_SHIELDS;
         GameState.credits = CONFIG.GAME.START_CREDITS;
+        GameState.crystals = CONFIG.GAME.START_CRYSTALS;
         GameState.currentSet = 1;
         GameState.currentWave = 1;
         GameState.isWaveActive = false;
@@ -1762,6 +2224,8 @@ document.addEventListener('DOMContentLoaded', () => {
         GameState.gameWon = false;
         GameState.enemiesSpawned = 0;
         GameState.enemiesKilledThisWave = 0;
+        GameState.waveEnemiesKilled = 0;
+        GameState.waveEnemiesAlive = 10;
         GameState.base = JSON.parse(JSON.stringify(CONFIG.BASE));
         
         GameState.stations = [];
@@ -1785,16 +2249,22 @@ document.addEventListener('DOMContentLoaded', () => {
         updateBaseInfo();
         generateWavePreview();
         
-        DOM.fastForwardBtn.classList.remove('active');
-        DOM.gameOverModal.style.display = 'none';
+        if (DOM.fastForwardBtn) DOM.fastForwardBtn.classList.remove('active');
+        if (DOM.gameOverModal) DOM.gameOverModal.style.display = 'none';
         DOM.startWaveBtn.disabled = false;
         DOM.startWaveBtn.innerHTML = '<i class="fas fa-play"></i> СТАРТ';
-        DOM.waveProgress.style.width = '0%';
-        DOM.enemiesLeft.textContent = '10';
-        DOM.floatingEnemies.textContent = '10';
-        DOM.enemiesKilled.textContent = '0';
-        DOM.set.textContent = `1/${CONFIG.GAME.MAX_SETS}`;
-        DOM.currentWaveSidebar.textContent = '1';
+        if (DOM.waveProgress) DOM.waveProgress.style.width = '0%';
+        if (DOM.enemiesLeft) DOM.enemiesLeft.textContent = '10';
+        if (DOM.floatingEnemies) DOM.floatingEnemies.textContent = '10';
+        if (DOM.enemiesKilled) DOM.enemiesKilled.textContent = '0';
+        if (DOM.set) DOM.set.textContent = `1/${CONFIG.GAME.MAX_SETS}`;
+        if (DOM.currentWaveSidebar) DOM.currentWaveSidebar.textContent = '1';
+        if (DOM.currentWave) DOM.currentWave.textContent = '1';
+        if (DOM.waveAttacking) DOM.waveAttacking.textContent = '10';
+        if (DOM.waveKilled) DOM.waveKilled.textContent = '0';
+        if (DOM.floatingSet) DOM.floatingSet.textContent = '1';
+        if (DOM.floatingWave) DOM.floatingWave.textContent = '1';
+        if (DOM.crystalsAmount) DOM.crystalsAmount.textContent = GameState.crystals;
         
         showMessage('🔄 Игра сброшена! Приготовьтесь к новой битве!', 'info');
     }
@@ -1803,38 +2273,39 @@ document.addEventListener('DOMContentLoaded', () => {
     function getStationConfig(type) {
         if (!type) return null;
         
-        if (type.toUpperCase() in CONFIG.STATIONS) {
-            return CONFIG.STATIONS[type.toUpperCase()];
-        }
-        
-        if (type in CONFIG.PREMIUM_STATIONS) {
-            return CONFIG.PREMIUM_STATIONS[type];
+        const upperType = type.toUpperCase();
+        if (upperType in CONFIG.STATIONS) {
+            return CONFIG.STATIONS[upperType];
         }
         
         return null;
     }
     
     function calculateUpgradeCost(station) {
-        return 150 + (station.level - 1) * 100;
+        return 150 + (station.upgradeCount * 100);
     }
     
     function generateWavePreview() {
+        if (!DOM.wavePreview) return;
+        
         DOM.wavePreview.innerHTML = '';
         
-        const enemies = [
-            { name: 'Разведчик', color: '#4dffea', count: 5 + GameState.currentWave },
-            { name: 'Истребитель', color: '#ff9966', count: 3 + Math.floor(GameState.currentWave / 2) }
-        ];
+        const enemyCounts = {
+            SCOUT: Math.max(5, Math.floor(GameState.currentWave * 1.5)),
+            FIGHTER: GameState.currentWave >= 2 ? Math.max(2, Math.floor(GameState.currentWave * 0.8)) : 0,
+            TANK: GameState.currentWave >= 5 ? Math.max(1, Math.floor(GameState.currentWave * 0.3)) : 0
+        };
         
-        enemies.forEach(enemy => {
-            if (enemy.count > 0) {
+        Object.entries(enemyCounts).forEach(([type, count]) => {
+            if (count > 0 && CONFIG.ENEMY_TYPES[type]) {
+                const enemy = CONFIG.ENEMY_TYPES[type];
                 const div = document.createElement('div');
                 div.className = 'enemy-preview-item';
                 div.style.borderLeftColor = enemy.color;
                 div.innerHTML = `
                     <i class="fas fa-robot" style="color: ${enemy.color}"></i>
                     <span class="enemy-preview-name">${enemy.name}</span>
-                    <span class="enemy-preview-count">×${enemy.count}</span>
+                    <span class="enemy-preview-count">×${count}</span>
                 `;
                 DOM.wavePreview.appendChild(div);
             }
@@ -1850,13 +2321,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function showMessage(text, type = 'info') {
-        DOM.messageText.textContent = text;
-        
-        setTimeout(() => {
-            if (DOM.messageText.textContent === text) {
-                DOM.messageText.textContent = `Сет ${GameState.currentSet}, Волна ${GameState.currentWave}`;
-            }
-        }, 3000);
+        if (DOM.messageText) {
+            DOM.messageText.textContent = text;
+            
+            setTimeout(() => {
+                if (DOM.messageText && DOM.messageText.textContent === text) {
+                    DOM.messageText.textContent = `Сет ${GameState.currentSet}, Волна ${GameState.currentWave}`;
+                }
+            }, 3000);
+        }
     }
     
     function showNotification(text, type = 'info') {
@@ -1877,37 +2350,47 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function clearSelection() {
-        DOM.stationItems.forEach(i => i.classList.remove('selected'));
+        document.querySelectorAll('.station-item').forEach(i => i.classList.remove('selected'));
         GameState.selectedStationType = null;
-        DOM.selectionIndicator.style.display = 'none';
+        if (DOM.selectionIndicator) DOM.selectionIndicator.style.display = 'none';
     }
     
     function closeTowerInfo() {
-        DOM.towerInfoPanel.style.display = 'none';
+        if (DOM.towerInfoPanel) DOM.towerInfoPanel.style.display = 'none';
         GameState.selectedStation = null;
         clearSelection();
     }
     
     function updateUI() {
-        DOM.lives.textContent = Math.floor(GameState.shields);
-        DOM.gold.textContent = GameState.credits;
-        DOM.set.textContent = `${GameState.currentSet}/${CONFIG.GAME.MAX_SETS}`;
+        if (DOM.lives) DOM.lives.textContent = Math.floor(GameState.shields);
+        if (DOM.gold) DOM.gold.textContent = GameState.credits;
+        if (DOM.set) DOM.set.textContent = `${GameState.currentSet}/${CONFIG.GAME.MAX_SETS}`;
+        if (DOM.currentWave) DOM.currentWave.textContent = GameState.currentWave;
+        if (DOM.floatingSet) DOM.floatingSet.textContent = GameState.currentSet;
+        if (DOM.floatingWave) DOM.floatingWave.textContent = GameState.currentWave;
+        if (DOM.crystalsAmount) DOM.crystalsAmount.textContent = GameState.crystals;
         
         const shieldPercent = GameState.shields / GameState.base.maxShields;
-        DOM.lives.style.color = shieldPercent > 0.5 ? '#00ff9d' : 
-                               shieldPercent > 0.25 ? '#ffd700' : '#ff2e63';
+        if (DOM.lives) {
+            DOM.lives.style.color = shieldPercent > 0.5 ? '#00ff9d' : 
+                                   shieldPercent > 0.25 ? '#ffd700' : '#ff2e63';
+        }
         
-        DOM.gold.classList.add('pulse');
-        setTimeout(() => DOM.gold.classList.remove('pulse'), 300);
+        if (DOM.gold) {
+            DOM.gold.classList.add('pulse');
+            setTimeout(() => {
+                if (DOM.gold) DOM.gold.classList.remove('pulse');
+            }, 300);
+        }
     }
     
     function updateBaseInfo() {
         const base = GameState.base;
-        DOM.baseLevel.textContent = base.level;
-        DOM.baseAttack.textContent = `+${base.attackBonus}%`;
-        DOM.baseIncome.textContent = `+${CONFIG.GAME.BASE_INCOME + base.incomeBonus}`;
-        DOM.availableSlots.textContent = `${base.availableSlots}/${base.maxSlots}`;
-        DOM.baseUpgradeCost.textContent = base.upgradeCost;
+        if (DOM.baseLevel) DOM.baseLevel.textContent = base.level;
+        if (DOM.baseAttack) DOM.baseAttack.textContent = `+${base.attackBonus}%`;
+        if (DOM.baseIncome) DOM.baseIncome.textContent = `+${CONFIG.GAME.BASE_INCOME + base.incomeBonus}`;
+        if (DOM.availableSlots) DOM.availableSlots.textContent = `${base.availableSlots}/${base.maxSlots}`;
+        if (DOM.baseUpgradeCost) DOM.baseUpgradeCost.textContent = base.upgradeCost;
     }
     
     function upgradeBase() {

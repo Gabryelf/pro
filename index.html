@@ -88,15 +88,21 @@
             <div class="game-board">
                 <canvas id="gameCanvas"></canvas>
                 
-                <!-- Floating Wave Info -->
+                <!-- Floating Wave Info - Перемещен в левый верхний угол -->
                 <div class="floating-wave-info">
+                    <div class="floating-wave-stage">
+                        <i class="fas fa-satellite"></i>
+                        <span>СЕТ <strong id="floatingSet">1</strong></span>
+                        <span class="wave-separator">•</span>
+                        <span>ВОЛНА <strong id="floatingWave">1</strong></span>
+                    </div>
                     <div class="floating-enemy-counter">
                         <i class="fas fa-fighter-jet"></i>
-                        <span id="floatingEnemies">10</span>
+                        <span>ВРАГИ: <strong id="floatingEnemies">10</strong></span>
                     </div>
                     <div class="floating-kill-counter">
                         <i class="fas fa-skull"></i>
-                        <span id="floatingKills">0</span>
+                        <span>УБИТО: <strong id="floatingKills">0</strong></span>
                     </div>
                 </div>
                 
@@ -146,11 +152,6 @@
                     </div>
                 </div>
             </div>
-
-            <div class="drones-counter" id="dronesCounter">
-                <i class="fas fa-robot"></i>
-                <span>Дроны: <strong id="dronesCount">0</strong>/<span id="maxDrones">0</span></span>
-            </div>
             
             <!-- Ultra Compact Sidebar -->
             <aside class="sidebar-compact">
@@ -161,7 +162,7 @@
                         <h3>СТАНЦИИ</h3>
                     </div>
                     
-                    <div class="stations-grid">
+                    <div class="stations-grid" id="stationsGrid">
                         <div class="station-item" data-type="laser" data-cost="200">
                             <div class="station-icon laser-station">
                                 <i class="fas fa-bolt"></i>
@@ -217,6 +218,8 @@
                                 <span class="stat-tag">🔗 цепная</span>
                             </div>
                         </div>
+                        
+                        <!-- Премиум станции будут добавлены динамически через JS -->
                     </div>
                 </div>
 
@@ -292,6 +295,19 @@
                         <h3>ВОЛНА <span id="currentWaveSidebar">1</span></h3>
                     </div>
                     
+                    <div class="wave-info-detailed">
+                        <div class="wave-stats">
+                            <div class="wave-stat">
+                                <i class="fas fa-robot"></i>
+                                <span>Атакуют: <strong id="waveAttacking">10</strong></span>
+                            </div>
+                            <div class="wave-stat">
+                                <i class="fas fa-skull"></i>
+                                <span>Убито: <strong id="waveKilled">0</strong></span>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="enemy-preview-mini" id="wavePreview">
                         <!-- Динамический контент -->
                     </div>
@@ -305,9 +321,19 @@
                 <i class="fas fa-info-circle"></i>
                 <span id="messageText">Выберите станцию для установки на поле</span>
             </div>
-            <div class="high-score">
-                <i class="fas fa-trophy"></i>
-                <span>РЕКОРД: <strong id="highscore">0</strong></span>
+            <div class="footer-right">
+                <div class="high-score">
+                    <i class="fas fa-trophy"></i>
+                    <span>РЕКОРД: <strong id="highscore">0</strong></span>
+                </div>
+                <div class="drones-counter-mini">
+                    <i class="fas fa-robot"></i>
+                    <span>Дроны: <strong id="dronesCountMini">2</strong>/<span id="maxDronesMini">2</span></span>
+                </div>
+                <div class="crystals-counter-mini">
+                    <i class="fas fa-gem"></i>
+                    <span>Кристаллы: <strong id="crystalsCountMini">0</strong></span>
+                </div>
             </div>
         </footer>
     </div>
@@ -349,6 +375,14 @@
                     <div class="stat">
                         <span class="stat-label">Врагов убито</span>
                         <span class="stat-value" id="gameOverKills">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Кристаллы</span>
+                        <span class="stat-value" id="gameOverCrystals">0</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-label">Спутники</span>
+                        <span class="stat-value" id="gameOverSatellites">0</span>
                     </div>
                 </div>
                 <button id="restartGame" class="restart-btn">
