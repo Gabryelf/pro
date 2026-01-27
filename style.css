@@ -23,7 +23,7 @@
     --box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
     --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     --glow: 0 0 15px;
-    --header-height: 60px;
+    --header-height: 70px;
     --sidebar-width: 280px;
 }
 
@@ -69,7 +69,7 @@ body::before {
 .header {
     background: linear-gradient(135deg, rgba(10, 10, 26, 0.95), rgba(20, 20, 43, 0.95));
     backdrop-filter: blur(10px);
-    padding: 8px 12px;
+    padding: 10px 15px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -86,18 +86,18 @@ body::before {
 .logo-section {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 15px;
     flex-shrink: 0;
 }
 
 .logo {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
 }
 
 .logo i {
-    font-size: 1.4rem;
+    font-size: 1.6rem;
     color: var(--space-blue);
     text-shadow: 0 0 10px var(--space-blue);
     animation: pulse 2s ease-in-out infinite;
@@ -110,7 +110,7 @@ body::before {
 
 .logo h1 {
     font-family: 'Orbitron', sans-serif;
-    font-size: 1.4rem;
+    font-size: 1.6rem;
     font-weight: 800;
     background: linear-gradient(135deg, var(--space-blue), var(--space-purple));
     -webkit-background-clip: text;
@@ -121,23 +121,23 @@ body::before {
 
 .game-state-compact {
     display: flex;
-    gap: 10px;
+    gap: 12px;
     flex-shrink: 0;
 }
 
 .state-item {
     display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 4px 8px;
+    gap: 6px;
+    padding: 6px 10px;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 6px;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    min-width: 60px;
+    min-width: 70px;
 }
 
 .state-item i {
-    font-size: 0.9rem;
+    font-size: 1rem;
 }
 
 .state-item:nth-child(1) i { color: var(--nebula-red); }
@@ -146,7 +146,7 @@ body::before {
 .state-item:nth-child(4) i { color: var(--nebula-green); }
 
 .state-item span {
-    font-size: 0.9rem;
+    font-size: 1rem;
     font-weight: 700;
     font-family: 'Orbitron', sans-serif;
     color: var(--text-light);
@@ -156,15 +156,15 @@ body::before {
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 4px;
+    gap: 6px;
     flex: 1;
 }
 
 .wave-info {
     display: flex;
     align-items: center;
-    gap: 6px;
-    font-size: 0.8rem;
+    gap: 8px;
+    font-size: 0.9rem;
     color: var(--text-light);
     font-weight: 600;
 }
@@ -181,25 +181,25 @@ body::before {
 
 .controls {
     display: flex;
-    gap: 4px;
+    gap: 6px;
     justify-content: flex-end;
 }
 
 .control-btn {
-    padding: 6px 12px;
+    padding: 8px 15px;
     border: none;
     border-radius: 6px;
     font-family: 'Orbitron', sans-serif;
     font-weight: 700;
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 6px;
     transition: var(--transition);
     position: relative;
     overflow: hidden;
-    min-height: 32px;
+    min-height: 36px;
     letter-spacing: 0.5px;
     flex-shrink: 0;
 }
@@ -227,8 +227,8 @@ body::before {
 }
 
 .control-btn-icon {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     border: none;
     border-radius: 6px;
     display: flex;
@@ -236,7 +236,7 @@ body::before {
     justify-content: center;
     cursor: pointer;
     transition: var(--transition);
-    font-size: 0.9rem;
+    font-size: 1rem;
     flex-shrink: 0;
 }
 
@@ -293,6 +293,7 @@ body::before {
     min-height: 0;
     overflow: hidden;
     padding: 8px;
+    flex-direction: row;
 }
 
 .game-board {
@@ -306,7 +307,7 @@ body::before {
         inset 0 0 20px rgba(0, 212, 255, 0.1),
         0 0 20px rgba(0, 212, 255, 0.1);
     min-width: 0;
-    min-height: 200px;
+    min-height: 300px;
     display: flex;
     flex-direction: column;
 }
@@ -424,6 +425,7 @@ body::before {
     background: rgba(255, 255, 255, 0.05);
     border-radius: 6px;
     border: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
 }
 
 .stat-label-mini {
@@ -438,6 +440,22 @@ body::before {
     font-weight: 800;
     color: var(--star-yellow);
     font-family: 'Orbitron', sans-serif;
+}
+
+.level-center {
+    width: 30px;
+    height: 30px;
+    background: linear-gradient(135deg, var(--space-blue), var(--space-purple));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 800;
+    font-size: 0.9rem;
+    color: white;
+    margin-top: 2px;
+    box-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
 }
 
 .tower-actions-mini {
@@ -1412,7 +1430,7 @@ body::before {
 .restart-btn {
     width: 100%;
     padding: 12px;
-    background: linear-gradient(135deg, var(--space-blue), var(--space-purple);
+    background: linear-gradient(135deg, var(--space-blue), var(--space-purple));
     border: none;
     border-radius: 6px;
     color: white;
@@ -1501,27 +1519,27 @@ body::before {
     }
     
     .header {
-        padding: 6px 10px;
+        padding: 8px 12px;
         gap: 8px;
     }
     
     .game-state-compact {
-        gap: 6px;
+        gap: 8px;
     }
     
     .state-item {
-        min-width: 55px;
-        padding: 4px 6px;
-        font-size: 0.8rem;
+        min-width: 65px;
+        padding: 5px 8px;
+        font-size: 0.85rem;
     }
     
     .controls {
-        gap: 3px;
+        gap: 4px;
     }
     
     .control-btn {
-        padding: 5px 10px;
-        font-size: 0.75rem;
+        padding: 6px 12px;
+        font-size: 0.8rem;
     }
     
     .btn-text {
@@ -1529,19 +1547,15 @@ body::before {
     }
     
     .control-btn-icon {
-        width: 30px;
-        height: 30px;
-        font-size: 0.8rem;
+        width: 32px;
+        height: 32px;
+        font-size: 0.9rem;
     }
 }
 
 @media (max-width: 992px) {
     .header {
-        flex-direction: column;
-        height: auto;
-        min-height: auto;
-        padding: 6px;
-        gap: 6px;
+        padding: 8px 10px;
     }
     
     .logo-section {
@@ -1557,6 +1571,7 @@ body::before {
     .wave-info {
         width: 100%;
         justify-content: center;
+        margin-bottom: 5px;
     }
     
     .controls {
@@ -1575,17 +1590,19 @@ body::before {
         flex-direction: row;
         flex-wrap: wrap;
         gap: 8px;
-        max-height: 200px;
+        max-height: 220px;
         overflow-x: auto;
         overflow-y: hidden;
+        order: 2;
+        margin-top: 8px;
     }
     
     .shop-section-compact,
     .base-section-mini,
     .wave-preview-mini {
         flex: 1;
-        min-width: 200px;
-        max-height: 180px;
+        min-width: 220px;
+        max-height: 200px;
     }
     
     .stations-grid {
@@ -1595,44 +1612,55 @@ body::before {
     .base-bonuses {
         grid-template-columns: repeat(4, 1fr);
     }
+    
+    .game-board {
+        min-height: 400px;
+        order: 1;
+    }
 }
 
 @media (max-width: 768px) {
     .header {
-        padding: 5px;
-        gap: 5px;
+        padding: 6px 8px;
+        gap: 6px;
+        height: 65px;
+        min-height: 65px;
     }
     
     .logo h1 {
-        font-size: 1.2rem;
+        font-size: 1.4rem;
+    }
+    
+    .logo i {
+        font-size: 1.4rem;
     }
     
     .game-state-compact {
-        gap: 4px;
+        gap: 5px;
     }
     
     .state-item {
-        min-width: 50px;
-        padding: 3px 5px;
-        font-size: 0.75rem;
-    }
-    
-    .state-item span {
+        min-width: 55px;
+        padding: 4px 6px;
         font-size: 0.8rem;
     }
     
+    .state-item span {
+        font-size: 0.9rem;
+    }
+    
     .wave-info {
-        font-size: 0.75rem;
+        font-size: 0.8rem;
     }
     
     .controls {
-        gap: 2px;
+        gap: 3px;
     }
     
     .control-btn {
-        padding: 4px 8px;
-        font-size: 0.7rem;
-        min-height: 28px;
+        padding: 5px 10px;
+        font-size: 0.75rem;
+        min-height: 32px;
     }
     
     .btn-text {
@@ -1640,27 +1668,27 @@ body::before {
     }
     
     .control-btn-icon {
-        width: 28px;
-        height: 28px;
-        font-size: 0.75rem;
+        width: 30px;
+        height: 30px;
+        font-size: 0.85rem;
     }
     
     .game-area {
         padding: 5px;
+        flex-direction: column;
     }
     
     .sidebar-compact {
-        flex-direction: column;
-        max-height: none;
-        height: auto;
-        max-height: 220px;
+        flex-direction: row;
+        max-height: 180px;
+        gap: 6px;
     }
     
     .shop-section-compact,
     .base-section-mini,
     .wave-preview-mini {
-        min-width: 100%;
-        max-height: none;
+        min-width: 220px;
+        max-height: 170px;
     }
     
     .stations-grid {
@@ -1669,6 +1697,10 @@ body::before {
     
     .base-bonuses {
         grid-template-columns: repeat(2, 1fr);
+    }
+    
+    .game-board {
+        min-height: 350px;
     }
     
     .tower-info-compact {
@@ -1698,13 +1730,22 @@ body::before {
     }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 576px) {
     .header {
-        padding: 4px;
+        padding: 5px;
+        height: 60px;
+        min-height: 60px;
+        flex-direction: column;
+        gap: 5px;
     }
     
     .logo-section {
-        gap: 8px;
+        width: 100%;
+        justify-content: space-between;
+    }
+    
+    .logo {
+        gap: 6px;
     }
     
     .logo i {
@@ -1712,41 +1753,46 @@ body::before {
     }
     
     .logo h1 {
-        font-size: 1rem;
+        font-size: 1.2rem;
     }
     
     .game-state-compact {
-        gap: 2px;
-        flex-wrap: wrap;
-        justify-content: flex-end;
+        gap: 3px;
     }
     
     .state-item {
-        min-width: 45px;
-        padding: 2px 4px;
+        min-width: 50px;
+        padding: 3px 5px;
         font-size: 0.7rem;
     }
     
     .state-item span {
-        font-size: 0.75rem;
+        font-size: 0.8rem;
+    }
+    
+    .wave-controls {
+        width: 100%;
+        align-items: center;
     }
     
     .wave-info {
         font-size: 0.7rem;
-        flex-wrap: wrap;
         justify-content: center;
+        margin-bottom: 3px;
     }
     
     .controls {
-        flex-wrap: wrap;
-        justify-content: center;
+        width: 100%;
+        justify-content: space-between;
     }
     
     .control-btn {
         flex: 1;
-        max-width: 100px;
-        padding: 4px 6px;
-        font-size: 0.65rem;
+        max-width: 120px;
+        padding: 4px 8px;
+        font-size: 0.7rem;
+        min-height: 30px;
+        justify-content: center;
     }
     
     .btn-text {
@@ -1755,21 +1801,38 @@ body::before {
     
     .control-btn-icon {
         flex: 1;
-        max-width: 40px;
-        min-width: 28px;
+        max-width: 50px;
+        min-width: 30px;
+        height: 30px;
+    }
+    
+    .game-area {
+        padding: 4px;
+        flex-direction: column;
     }
     
     .sidebar-compact {
-        max-height: 180px;
+        flex-direction: column;
+        max-height: 200px;
+        gap: 5px;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+    
+    .shop-section-compact,
+    .base-section-mini,
+    .wave-preview-mini {
+        min-width: 100%;
+        max-height: none;
     }
     
     .stations-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
     }
     
-    .station-item {
-        min-height: 80px;
-        padding: 8px;
+    .game-board {
+        min-height: 300px;
+        order: 1;
     }
     
     .shop-items {
@@ -1797,9 +1860,10 @@ body::before {
     .game-footer-mini {
         flex-direction: column;
         height: auto;
-        min-height: 50px;
-        gap: 6px;
-        padding: 8px;
+        min-height: 55px;
+        gap: 5px;
+        padding: 6px;
+        margin: 4px;
     }
     
     .message-bar {
@@ -1815,20 +1879,113 @@ body::before {
     }
 }
 
-/* Landscape mode */
-@media (max-height: 600px) and (orientation: landscape) {
+/* Портретный режим для мобилок */
+@media (max-width: 480px) and (orientation: portrait) {
+    .container {
+        height: 100vh;
+    }
+    
     .header {
-        height: 50px;
-        min-height: 50px;
+        height: 70px;
+        min-height: 70px;
+        padding: 5px 8px;
+    }
+    
+    .logo-section {
+        margin-bottom: 3px;
+    }
+    
+    .game-state-compact {
+        justify-content: space-around;
+        width: 100%;
+        margin-top: 3px;
+    }
+    
+    .state-item {
+        flex: 1;
+        min-width: auto;
+        justify-content: center;
+    }
+    
+    .wave-controls {
+        margin-top: 5px;
+    }
+    
+    .game-area {
+        flex-direction: column;
+        padding: 4px;
+        height: calc(100vh - 140px);
+    }
+    
+    .game-board {
+        min-height: calc(100vh - 300px);
+        height: 60vh;
+        order: 1;
+    }
+    
+    .sidebar-compact {
+        order: 2;
+        max-height: 150px;
+        margin-top: 5px;
+        flex-direction: row;
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+    
+    .shop-section-compact,
+    .base-section-mini,
+    .wave-preview-mini {
+        min-width: 250px;
+        height: 140px;
+    }
+    
+    .stations-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .game-footer-mini {
+        height: 40px;
+        min-height: 40px;
+        margin: 4px;
+        order: 3;
+    }
+}
+
+/* Landscape mode для мобилок */
+@media (max-width: 768px) and (orientation: landscape) {
+    .header {
+        height: 55px;
+        min-height: 55px;
         padding: 4px 6px;
     }
     
     .game-area {
         flex-direction: row;
+        height: calc(100vh - 95px);
+    }
+    
+    .game-board {
+        min-height: calc(100vh - 150px);
+        height: auto;
     }
     
     .sidebar-compact {
-        max-height: calc(100vh - 140px);
+        max-height: calc(100vh - 150px);
+        flex-direction: column;
+        overflow-y: auto;
+        overflow-x: hidden;
+        min-width: 200px;
+    }
+    
+    .shop-section-compact,
+    .base-section-mini,
+    .wave-preview-mini {
+        min-width: 100%;
+        max-height: none;
+    }
+    
+    .stations-grid {
+        grid-template-columns: repeat(2, 1fr);
     }
     
     .game-footer-mini {
