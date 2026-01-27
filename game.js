@@ -1,4 +1,4 @@
-// Cosmic Defender - Переписанная версия с исправлениями
+// Cosmic Defender - Полностью переписанная версия со всеми улучшениями
 document.addEventListener('DOMContentLoaded', () => {
     console.log('🚀 Cosmic Defender загружается...');
     
@@ -14,8 +14,9 @@ document.addEventListener('DOMContentLoaded', () => {
             DRONES_PER_LEVEL: 2,
             ENEMY_SPAWN_INTERVAL: 2000,
             GAME_SPEED: 1.0,
-            MIN_BUILD_SPOT_DISTANCE: 120,
-            MAX_BUILD_SPOT_DISTANCE: 300
+            MIN_BUILD_SPOT_DISTANCE: 100,
+            MAX_BUILD_SPOT_DISTANCE: 300,
+            MIN_SPOT_DISTANCE: 60 // Минимальное расстояние между местами для пушек
         },
         
         STATIONS: {
@@ -79,35 +80,35 @@ document.addEventListener('DOMContentLoaded', () => {
         ENEMY_TYPES: {
             SCOUT: {
                 name: 'Разведчик',
-                health: 100,
-                speed: 2.0,
+                health: 150,
+                speed: 0.8,
                 size: 12,
                 color: '#4dffea',
-                credits: 25,
+                credits: 35,
                 crystals: 1,
                 armor: 0,
                 spawnWeight: 30
             },
             FIGHTER: {
                 name: 'Истребитель',
-                health: 200,
-                speed: 1.5,
+                health: 300,
+                speed: 0.5,
                 size: 15,
                 color: '#ff9966',
-                credits: 40,
+                credits: 60,
                 crystals: 2,
-                armor: 10,
+                armor: 15,
                 spawnWeight: 25
             },
             TANK: {
                 name: 'Танк',
-                health: 500,
-                speed: 0.8,
+                health: 800,
+                speed: 0.3,
                 size: 20,
                 color: '#ff3333',
-                credits: 100,
+                credits: 150,
                 crystals: 5,
-                armor: 30,
+                armor: 40,
                 spawnWeight: 10
             }
         },
@@ -124,6 +125,65 @@ document.addEventListener('DOMContentLoaded', () => {
             upgradeCost: 500,
             drones: 0,
             maxDrones: 2
+        },
+        
+        SHOP_ITEMS: {
+            weapons: [
+                {
+                    id: 'quantum',
+                    name: 'Квантовый луч',
+                    description: 'Мощный луч с проникающей способностью',
+                    crystalCost: 50,
+                    type: 'weapon',
+                    effect: 'unlock_station'
+                }
+            ],
+            satellites: [
+                {
+                    id: 'satellite1',
+                    name: 'Базовый спутник',
+                    description: 'Автономный защитник с лазерным вооружением',
+                    crystalCost: 25,
+                    type: 'satellite',
+                    effect: 'add_satellite',
+                    damage: 20,
+                    range: 150,
+                    fireRate: 1000,
+                    speed: 0.4,
+                    color: '#00bfff'
+                }
+            ],
+            harvesters: [
+                {
+                    id: 'harvester1',
+                    name: 'Базовый харвестер',
+                    description: 'Собирает кристаллы из космоса',
+                    crystalCost: 30,
+                    type: 'harvester',
+                    effect: 'add_harvester',
+                    speed: 0.3,
+                    collectionRate: 1,
+                    color: '#ffd700'
+                }
+            ],
+            cosmetics: [
+                {
+                    id: 'gold_base',
+                    name: 'Золотая база',
+                    description: 'Эксклюзивный скин для базы',
+                    crystalCost: 150,
+                    type: 'cosmetic',
+                    effect: 'gold_base_skin'
+                },
+                {
+                    id: 'nebula_base',
+                    name: 'Туманность',
+                    description: 'Эффект туманности вокруг базы',
+                    crystalCost: 100,
+                    type: 'cosmetic',
+                    effect: 'nebula_effect'
+                }
+            ]
         }
     };
     
@@ -150,6 +210,8 @@ document.addEventListener('DOMContentLoaded', () => {
         projectiles: [],
         particles: [],
         baseDrones: [],
+        satellites: [],
+        harvesters: [],
         
         enemiesSpawned: 0,
         enemiesKilledThisWave: 0,
@@ -181,9 +243,13 @@ document.addEventListener('DOMContentLoaded', () => {
         },
         purchasedItems: JSON.parse(localStorage.getItem('cosmic_purchases')) || {},
         
+        cosmeticEffects: JSON.parse(localStorage.getItem('cosmic_cosmetics')) || {},
+        
         isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent),
         touchStartX: 0,
-        touchStartY: 0
+        touchStartY: 0,
+        
+        stars: []
     };
     
     // ==================== DOM ЭЛЕМЕНТЫ ====================
@@ -211,7 +277,7 @@ document.addEventListener('DOMContentLoaded', () => {
             closeTowerInfoBtn: document.getElementById('closeTowerInfo'),
             towerInfoPanel: document.getElementById('towerInfoPanel'),
             towerName: document.getElementById('towerName'),
-            towerLevel: document.getElementById('towerLevel'),
+            towerLevel: document.getElementById('towerLevelCenter'),
             towerDamage: document.getElementById('towerDamage'),
             towerRange: document.getElementById('towerRange'),
             towerSpeed: document.getElementById('towerSpeed'),
@@ -286,10 +352,12 @@ document.addEventListener('DOMContentLoaded', () => {
         createStars();
         
         loadPurchasedItems();
+        loadCosmeticEffects();
         updateStationsShop();
         
         DOM.highscore.textContent = GameState.highScore;
         DOM.crystalsAmount.textContent = GameState.crystals;
+        DOM.crystalsCount.textContent = GameState.crystals;
         updateUI();
         generateWavePreview();
         initInfoModal();
@@ -310,8 +378,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const availableHeight = window.innerHeight - header.offsetHeight - (footer ? footer.offsetHeight : 0) - 16;
             const availableWidth = container.clientWidth - 16;
             
-            DOM.canvas.width = Math.max(600, availableWidth);
-            DOM.canvas.height = Math.max(400, availableHeight);
+            const isPortrait = window.innerHeight > window.innerWidth;
+            
+            if (isPortrait && GameState.isMobile) {
+                DOM.canvas.width = Math.max(400, availableWidth);
+                DOM.canvas.height = Math.max(500, availableHeight * 0.7);
+            } else {
+                DOM.canvas.width = Math.max(600, availableWidth);
+                DOM.canvas.height = Math.max(400, availableHeight);
+            }
             
             console.log(`📐 Канвас: ${DOM.canvas.width}x${DOM.canvas.height}`);
             
@@ -351,37 +426,77 @@ document.addEventListener('DOMContentLoaded', () => {
         const maxRadius = Math.min(CONFIG.GAME.MAX_BUILD_SPOT_DISTANCE, 
                                  Math.min(centerX, centerY) - 50);
         
-        const angleStep = (Math.PI * 2) / GameState.base.availableSlots;
+        const spots = [];
+        const maxAttempts = 100;
+        let attempts = 0;
         
-        for (let i = 0; i < GameState.base.availableSlots; i++) {
-            const angle = i * angleStep + (Math.random() * 0.2 - 0.1);
-            const radius = minRadius + (maxRadius - minRadius) * (i / GameState.base.availableSlots);
+        while (spots.length < GameState.base.availableSlots && attempts < maxAttempts) {
+            attempts++;
             
-            const spot = {
+            const angle = Math.random() * Math.PI * 2;
+            const radius = minRadius + Math.random() * (maxRadius - minRadius);
+            
+            const newSpot = {
                 x: centerX + Math.cos(angle) * radius,
                 y: centerY + Math.sin(angle) * radius,
-                radius: 20,
+                radius: 25,
                 occupied: false,
                 station: null,
                 angle: angle
             };
             
-            GameState.buildSpots.push(spot);
+            // Проверяем, что новое место не пересекается с существующими
+            let isValid = true;
+            for (const spot of spots) {
+                const dx = spot.x - newSpot.x;
+                const dy = spot.y - newSpot.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < CONFIG.GAME.MIN_SPOT_DISTANCE) {
+                    isValid = false;
+                    break;
+                }
+            }
+            
+            if (isValid) {
+                spots.push(newSpot);
+            }
+        }
+        
+        GameState.buildSpots = spots;
+        
+        // Если не удалось создать нужное количество мест
+        if (GameState.buildSpots.length < GameState.base.availableSlots) {
+            const remaining = GameState.base.availableSlots - GameState.buildSpots.length;
+            const angleStep = (Math.PI * 2) / remaining;
+            
+            for (let i = 0; i < remaining; i++) {
+                const angle = i * angleStep;
+                const radius = minRadius + (maxRadius - minRadius) * (i / remaining);
+                
+                GameState.buildSpots.push({
+                    x: centerX + Math.cos(angle) * radius,
+                    y: centerY + Math.sin(angle) * radius,
+                    radius: 25,
+                    occupied: false,
+                    station: null,
+                    angle: angle
+                });
+            }
         }
     }
     
     function createStars() {
-        for (let i = 0; i < 100; i++) {
-            GameState.particles.push({
+        GameState.stars = [];
+        const starCount = 200;
+        
+        for (let i = 0; i < starCount; i++) {
+            GameState.stars.push({
                 x: Math.random() * DOM.canvas.width,
                 y: Math.random() * DOM.canvas.height,
                 size: Math.random() * 1.5 + 0.5,
-                speedX: 0,
-                speedY: 0,
-                color: '#ffffff',
-                opacity: Math.random() * 0.3 + 0.1,
-                life: -1,
-                isStar: true
+                brightness: Math.random() * 0.5 + 0.3,
+                twinkleSpeed: Math.random() * 0.02 + 0.01
             });
         }
     }
@@ -416,38 +531,53 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const centerX = DOM.canvas.width / 2;
         const centerY = DOM.canvas.height / 2;
-        const baseRadius = 80;
-        const pathCount = Math.min(3, GameState.currentSet);
+        const baseRadius = 60;
+        const pathCount = Math.min(4, GameState.currentSet);
+        const maxPathLength = Math.min(DOM.canvas.width, DOM.canvas.height) * 0.4;
         
         for (let i = 0; i < pathCount; i++) {
-            const angle = (i / pathCount) * Math.PI * 2;
-            const startDistance = Math.min(500, Math.min(DOM.canvas.width, DOM.canvas.height) * 0.45);
+            const startAngle = (i / pathCount) * Math.PI * 2;
+            const endAngle = startAngle + Math.PI;
             
-            const path = [
-                {
-                    x: centerX + Math.cos(angle) * startDistance,
-                    y: centerY + Math.sin(angle) * startDistance
-                },
-                {
-                    x: centerX + Math.cos(angle) * (startDistance * 0.7),
-                    y: centerY + Math.sin(angle) * (startDistance * 0.7)
-                },
-                {
-                    x: centerX + Math.cos(angle + 0.3) * (startDistance * 0.5),
-                    y: centerY + Math.sin(angle + 0.3) * (startDistance * 0.5)
-                },
-                {
-                    x: centerX + Math.cos(angle) * baseRadius,
-                    y: centerY + Math.sin(angle) * baseRadius
+            // Создаем длинный извилистый путь
+            const path = [];
+            const segments = 8; // Увеличиваем количество сегментов для более длинного пути
+            
+            for (let j = 0; j <= segments; j++) {
+                const progress = j / segments;
+                const angleVariation = Math.sin(progress * Math.PI * 2) * 0.5;
+                const currentAngle = startAngle + (endAngle - startAngle) * progress + angleVariation;
+                
+                // Постепенно уменьшаем радиус к базе
+                const radius = maxPathLength * (1 - progress * 0.8) + baseRadius;
+                
+                const point = {
+                    x: centerX + Math.cos(currentAngle) * radius,
+                    y: centerY + Math.sin(currentAngle) * radius
+                };
+                
+                // Добавляем случайное смещение для извилистости
+                if (j > 0 && j < segments) {
+                    point.x += (Math.random() - 0.5) * 50;
+                    point.y += (Math.random() - 0.5) * 50;
                 }
-            ];
+                
+                path.push(point);
+            }
+            
+            // Добавляем точку у базы
+            path.push({
+                x: centerX + Math.cos(endAngle) * baseRadius,
+                y: centerY + Math.sin(endAngle) * baseRadius
+            });
             
             GameState.currentPaths.push(path);
             
-            for (let j = 0; j < 5; j++) {
+            // Добавляем стрелки для пути
+            for (let j = 0; j < 8; j++) {
                 GameState.pathArrows.push({
                     pathIndex: i,
-                    progress: j / 5,
+                    progress: j / 8,
                     offset: Math.random() * 0.2,
                     alpha: 0.3 + Math.random() * 0.4,
                     pulseSpeed: 0.5 + Math.random() * 0.5
@@ -564,7 +694,6 @@ document.addEventListener('DOMContentLoaded', () => {
         GameState.hoveredBuildSpot = null;
         
         if (GameState.selectedStationType && !GameState.isWaveActive) {
-            // Находим ближайшее место для постройки
             let closestSpot = null;
             let closestDistance = Infinity;
             
@@ -574,7 +703,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const dy = spot.y - coords.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
                     
-                    if (distance < 30 && distance < closestDistance) {
+                    if (distance < 40 && distance < closestDistance) {
                         closestDistance = distance;
                         closestSpot = spot;
                     }
@@ -621,7 +750,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const dy = spot.y - coords.y;
                     const distance = Math.sqrt(dx * dx + dy * dy);
                     
-                    if (distance < 40 && distance < closestDistance) {
+                    if (distance < 50 && distance < closestDistance) {
                         closestDistance = distance;
                         closestSpot = spot;
                     }
@@ -746,8 +875,6 @@ document.addEventListener('DOMContentLoaded', () => {
         GameState.lastTime = timestamp;
         GameState.animationTime += GameState.deltaTime;
         
-        updateParticles();
-        
         if (!GameState.isPaused && !GameState.gameOver && !GameState.gameWon) {
             if (GameState.isWaveActive) {
                 updateWave();
@@ -757,6 +884,8 @@ document.addEventListener('DOMContentLoaded', () => {
             updateStations();
             updateProjectiles();
             updateBaseDrones();
+            updateSatellites();
+            updateHarvesters();
             
             if (DOM.waveAttacking) DOM.waveAttacking.textContent = GameState.waveEnemiesAlive;
             if (DOM.waveKilled) DOM.waveKilled.textContent = GameState.waveEnemiesKilled;
@@ -770,33 +899,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         render();
         requestAnimationFrame(gameLoop);
-    }
-    
-    function updateParticles() {
-        for (let i = GameState.particles.length - 1; i >= 0; i--) {
-            const particle = GameState.particles[i];
-            
-            if (particle.life > 0) {
-                particle.life--;
-                if (particle.life <= 0) {
-                    GameState.particles.splice(i, 1);
-                    continue;
-                }
-            }
-            
-            particle.x += particle.speedX;
-            particle.y += particle.speedY;
-            
-            if (particle.life > 0) {
-                particle.opacity = particle.life / 40;
-            }
-            
-            // Удаляем частицы за пределами экрана
-            if (particle.x < -50 || particle.x > DOM.canvas.width + 50 || 
-                particle.y < -50 || particle.y > DOM.canvas.height + 50) {
-                GameState.particles.splice(i, 1);
-            }
-        }
     }
     
     function updateWave() {
@@ -857,7 +959,6 @@ document.addEventListener('DOMContentLoaded', () => {
         GameState.enemiesThisWave = Math.floor((8 + Math.floor(wave * 1.2)) * multiplier);
         GameState.waveEnemiesAlive = GameState.enemiesThisWave;
         
-        // Определяем типы врагов для этой волны
         let types = [];
         let weights = [];
         
@@ -910,6 +1011,7 @@ document.addEventListener('DOMContentLoaded', () => {
             moveEnemy(enemy);
             
             checkDroneCollision(enemy);
+            checkSatelliteCollision(enemy);
             
             if (enemy.health <= 0) {
                 killEnemy(enemy, i);
@@ -995,6 +1097,21 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (distance < 20 && drone.target === null) {
                 drone.target = enemy;
+                break;
+            }
+        }
+    }
+    
+    function checkSatelliteCollision(enemy) {
+        for (let i = GameState.satellites.length - 1; i >= 0; i--) {
+            const satellite = GameState.satellites[i];
+            
+            const dx = enemy.x - satellite.x;
+            const dy = enemy.y - satellite.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < satellite.range && satellite.target === null) {
+                satellite.target = enemy;
                 break;
             }
         }
@@ -1331,6 +1448,288 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    // ==================== СПУТНИКИ ====================
+    function updateSatellites() {
+        GameState.satellites.forEach(satellite => {
+            // Обновляем патрон
+            if (satellite.patrolTimer <= 0) {
+                // Генерируем новую случайную точку для патрулирования
+                const centerX = DOM.canvas.width / 2;
+                const centerY = DOM.canvas.height / 2;
+                const patrolRadius = 300;
+                
+                satellite.targetX = centerX + (Math.random() - 0.5) * patrolRadius;
+                satellite.targetY = centerY + (Math.random() - 0.5) * patrolRadius;
+                
+                // Проверяем, чтобы точка не была слишком близко к базе
+                const dx = satellite.targetX - centerX;
+                const dy = satellite.targetY - centerY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                if (distance < 100) {
+                    satellite.targetX = centerX + (dx / distance) * 100;
+                    satellite.targetY = centerY + (dy / distance) * 100;
+                }
+                
+                satellite.patrolTimer = 2000 + Math.random() * 3000; // 2-5 секунд
+            } else {
+                satellite.patrolTimer -= GameState.deltaTime;
+            }
+            
+            // Двигаемся к целевой точке
+            if (satellite.targetX && satellite.targetY) {
+                const dx = satellite.targetX - satellite.x;
+                const dy = satellite.targetY - satellite.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 10) {
+                    const moveDistance = satellite.speed * (GameState.deltaTime / 16) * CONFIG.GAME.GAME_SPEED;
+                    satellite.x += (dx / distance) * moveDistance;
+                    satellite.y += (dy / distance) * moveDistance;
+                }
+            }
+            
+            // Ищем врагов для атаки
+            if (!satellite.target || satellite.target.health <= 0) {
+                satellite.target = findTargetForSatellite(satellite);
+            }
+            
+            // Атакуем врага
+            if (satellite.target) {
+                const dx = satellite.target.x - satellite.x;
+                const dy = satellite.target.y - satellite.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > satellite.range) {
+                    satellite.target = null;
+                } else {
+                    const currentTime = Date.now();
+                    if (currentTime - satellite.lastShot > satellite.fireRate) {
+                        shootFromSatellite(satellite);
+                        satellite.lastShot = currentTime;
+                    }
+                }
+            }
+        });
+    }
+    
+    function findTargetForSatellite(satellite) {
+        let closestEnemy = null;
+        let closestDistance = satellite.range;
+        
+        for (const enemy of GameState.enemies) {
+            const dx = enemy.x - satellite.x;
+            const dy = enemy.y - satellite.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance < closestDistance) {
+                closestEnemy = enemy;
+                closestDistance = distance;
+            }
+        }
+        
+        return closestEnemy;
+    }
+    
+    function shootFromSatellite(satellite) {
+        if (!satellite.target) return;
+        
+        GameState.projectiles.push({
+            x: satellite.x,
+            y: satellite.y,
+            target: satellite.target,
+            damage: satellite.damage,
+            color: satellite.color,
+            speed: 7,
+            size: 4,
+            fromSatellite: satellite
+        });
+        
+        const dx = satellite.target.x - satellite.x;
+        const dy = satellite.target.y - satellite.y;
+        const angle = Math.atan2(dy, dx);
+        
+        for (let i = 0; i < 2; i++) {
+            GameState.particles.push({
+                x: satellite.x,
+                y: satellite.y,
+                size: Math.random() * 2 + 1,
+                speedX: Math.cos(angle) * 3 + (Math.random() - 0.5),
+                speedY: Math.sin(angle) * 3 + (Math.random() - 0.5),
+                color: satellite.color,
+                opacity: 1,
+                life: 15
+            });
+        }
+    }
+    
+    function addSatellite(config) {
+        const centerX = DOM.canvas.width / 2;
+        const centerY = DOM.canvas.height / 2;
+        const patrolRadius = 200;
+        
+        const satellite = {
+            id: Date.now() + Math.random(),
+            x: centerX + (Math.random() - 0.5) * patrolRadius,
+            y: centerY + (Math.random() - 0.5) * patrolRadius,
+            target: null,
+            targetX: null,
+            targetY: null,
+            speed: config.speed || 0.4,
+            range: config.range || 150,
+            damage: config.damage || 20,
+            fireRate: config.fireRate || 1000,
+            lastShot: 0,
+            color: config.color || '#00bfff',
+            patrolTimer: 0
+        };
+        
+        GameState.satellites.push(satellite);
+        
+        showMessage(`🛰️ Спутник "${config.name}" активирован!`, 'success');
+    }
+    
+    // ==================== ХАРВЕСТЕРЫ ====================
+    function updateHarvesters() {
+        const centerX = DOM.canvas.width / 2;
+        const centerY = DOM.canvas.height / 2;
+        const baseRadius = 60;
+        
+        GameState.harvesters.forEach(harvester => {
+            // Обновляем таймер сбора
+            if (harvester.collectionTimer <= 0) {
+                harvester.collectionTimer = harvester.collectionInterval;
+                // Проверяем, достаточно ли близко к базе для сбора
+                const dx = centerX - harvester.x;
+                const dy = centerY - harvester.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < baseRadius + 20) {
+                    // Собираем кристаллы
+                    GameState.crystals += harvester.collectionRate;
+                    DOM.crystalsAmount.textContent = GameState.crystals;
+                    DOM.crystalsCount.textContent = GameState.crystals;
+                    
+                    createCrystalEffect(harvester.x, harvester.y, harvester.collectionRate);
+                    
+                    // Отлетаем от базы
+                    harvester.avoidBase = true;
+                    harvester.avoidTimer = 1000;
+                }
+            } else {
+                harvester.collectionTimer -= GameState.deltaTime;
+            }
+            
+            // Проверяем врагов поблизости
+            let enemyNearby = false;
+            for (const enemy of GameState.enemies) {
+                const dx = enemy.x - harvester.x;
+                const dy = enemy.y - harvester.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance < 150) {
+                    enemyNearby = true;
+                    harvester.avoidEnemy = enemy;
+                    harvester.avoidTimer = 1500;
+                    break;
+                }
+            }
+            
+            // Избегаем врагов
+            if (harvester.avoidEnemy && harvester.avoidTimer > 0) {
+                const dx = harvester.x - harvester.avoidEnemy.x;
+                const dy = harvester.y - harvester.avoidEnemy.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 0) {
+                    const moveDistance = harvester.speed * 1.5 * (GameState.deltaTime / 16) * CONFIG.GAME.GAME_SPEED;
+                    harvester.x += (dx / distance) * moveDistance;
+                    harvester.y += (dy / distance) * moveDistance;
+                }
+                
+                harvester.avoidTimer -= GameState.deltaTime;
+                if (harvester.avoidTimer <= 0) {
+                    harvester.avoidEnemy = null;
+                }
+            }
+            // Избегаем базы, если нужно
+            else if (harvester.avoidBase && harvester.avoidTimer > 0) {
+                const dx = harvester.x - centerX;
+                const dy = harvester.y - centerY;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                
+                if (distance > 0) {
+                    const moveDistance = harvester.speed * 1.2 * (GameState.deltaTime / 16) * CONFIG.GAME.GAME_SPEED;
+                    harvester.x += (dx / distance) * moveDistance;
+                    harvester.y += (dy / distance) * moveDistance;
+                }
+                
+                harvester.avoidTimer -= GameState.deltaTime;
+                if (harvester.avoidTimer <= 0) {
+                    harvester.avoidBase = false;
+                }
+            }
+            // Иначе патрулируем
+            else {
+                // Обновляем патрулирование
+                if (harvester.patrolTimer <= 0) {
+                    // Генерируем новую случайную точку
+                    const patrolRadius = 400;
+                    
+                    harvester.targetX = centerX + (Math.random() - 0.5) * patrolRadius;
+                    harvester.targetY = centerY + (Math.random() - 0.5) * patrolRadius;
+                    
+                    harvester.patrolTimer = 3000 + Math.random() * 4000; // 3-7 секунд
+                } else {
+                    harvester.patrolTimer -= GameState.deltaTime;
+                }
+                
+                // Двигаемся к целевой точке
+                if (harvester.targetX && harvester.targetY) {
+                    const dx = harvester.targetX - harvester.x;
+                    const dy = harvester.targetY - harvester.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance > 10) {
+                        const moveDistance = harvester.speed * (GameState.deltaTime / 16) * CONFIG.GAME.GAME_SPEED;
+                        harvester.x += (dx / distance) * moveDistance;
+                        harvester.y += (dy / distance) * moveDistance;
+                    }
+                }
+            }
+            
+            // Ограничиваем движение в пределах поля
+            harvester.x = Math.max(20, Math.min(DOM.canvas.width - 20, harvester.x));
+            harvester.y = Math.max(20, Math.min(DOM.canvas.height - 20, harvester.y));
+        });
+    }
+    
+    function addHarvester(config) {
+        const centerX = DOM.canvas.width / 2;
+        const centerY = DOM.canvas.height / 2;
+        const patrolRadius = 300;
+        
+        const harvester = {
+            id: Date.now() + Math.random(),
+            x: centerX + (Math.random() - 0.5) * patrolRadius,
+            y: centerY + (Math.random() - 0.5) * patrolRadius,
+            speed: config.speed || 0.3,
+            collectionRate: config.collectionRate || 1,
+            collectionInterval: 3000, // Собирает каждые 3 секунды
+            collectionTimer: 0,
+            color: config.color || '#ffd700',
+            targetX: null,
+            targetY: null,
+            patrolTimer: 0,
+            avoidEnemy: null,
+            avoidBase: false,
+            avoidTimer: 0
+        };
+        
+        GameState.harvesters.push(harvester);
+        
+        showMessage(`⛏️ Харвестер "${config.name}" активирован!`, 'success');
+    }
+    
     // ==================== БАЗА И ДРОНЫ ====================
     function updateBaseDrones() {
         GameState.baseDrones.forEach((drone, index) => {
@@ -1373,7 +1772,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         color: '#9d4edd',
                         speed: 6,
                         size: 3,
-                        fromStation: null
+                        fromDrone: true
                     });
                 }
             } else {
@@ -1404,371 +1803,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if (DOM.maxDronesMini) DOM.maxDronesMini.textContent = GameState.base.maxDrones;
     }
     
-    // ==================== ОТРИСОВКА ====================
-    function render() {
-        DOM.ctx.clearRect(0, 0, DOM.canvas.width, DOM.canvas.height);
-        
-        drawBackground();
-        drawPaths();
-        drawBuildSpots();
-        drawStations();
-        drawEnemies();
-        drawProjectiles();
-        drawParticles();
-        drawBase();
-        drawDrones();
-        
-        if (GameState.selectedStation && !GameState.isWaveActive) {
-            drawStationRange(GameState.selectedStation);
-        }
-        
-        if (GameState.isPaused) drawPauseOverlay();
-    }
-    
-    function drawBackground() {
-        DOM.ctx.fillStyle = '#0a0a1a';
-        DOM.ctx.fillRect(0, 0, DOM.canvas.width, DOM.canvas.height);
-        
-        const gradient = DOM.ctx.createRadialGradient(
-            DOM.canvas.width / 2, DOM.canvas.height / 2, 0,
-            DOM.canvas.width / 2, DOM.canvas.height / 2, Math.max(DOM.canvas.width, DOM.canvas.height)
-        );
-        gradient.addColorStop(0, 'rgba(10, 10, 42, 0.3)');
-        gradient.addColorStop(1, 'rgba(0, 0, 16, 0.8)');
-        DOM.ctx.fillStyle = gradient;
-        DOM.ctx.fillRect(0, 0, DOM.canvas.width, DOM.canvas.height);
-        
-        GameState.particles.forEach(particle => {
-            if (particle.isStar) {
-                DOM.ctx.fillStyle = `rgba(255, 255, 255, ${particle.opacity})`;
-                DOM.ctx.beginPath();
-                DOM.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-                DOM.ctx.fill();
-            }
-        });
-    }
-    
-    function drawPaths() {
-        GameState.currentPaths.forEach((path, pathIndex) => {
-            if (path.length < 2) return;
-            
-            DOM.ctx.strokeStyle = `rgba(0, 212, 255, 0.08)`;
-            DOM.ctx.lineWidth = 30;
-            DOM.ctx.lineCap = 'round';
-            DOM.ctx.lineJoin = 'round';
-            
-            DOM.ctx.beginPath();
-            DOM.ctx.moveTo(path[0].x, path[0].y);
-            for (let i = 1; i < path.length; i++) {
-                DOM.ctx.lineTo(path[i].x, path[i].y);
-            }
-            DOM.ctx.stroke();
-            
-            DOM.ctx.strokeStyle = `rgba(0, 255, 157, 0.15)`;
-            DOM.ctx.lineWidth = 2;
-            DOM.ctx.setLineDash([10, 5]);
-            DOM.ctx.stroke();
-            DOM.ctx.setLineDash([]);
-        });
-        
-        GameState.pathArrows.forEach(arrow => {
-            const path = GameState.currentPaths[arrow.pathIndex];
-            if (!path || path.length < 2) return;
-            
-            const totalLength = getPathLength(path);
-            const targetLength = totalLength * arrow.progress;
-            
-            let accumulated = 0;
-            let pointIndex = 0;
-            let pos = { x: path[0].x, y: path[0].y };
-            
-            for (let i = 1; i < path.length; i++) {
-                const segmentLength = Math.sqrt(
-                    Math.pow(path[i].x - path[i-1].x, 2) + 
-                    Math.pow(path[i].y - path[i-1].y, 2)
-                );
-                
-                if (accumulated + segmentLength >= targetLength) {
-                    const ratio = (targetLength - accumulated) / segmentLength;
-                    pos.x = path[i-1].x + (path[i].x - path[i-1].x) * ratio;
-                    pos.y = path[i-1].y + (path[i].y - path[i-1].y) * ratio;
-                    pointIndex = i - 1;
-                    break;
-                }
-                accumulated += segmentLength;
-            }
-            
-            const nextPoint = path[pointIndex + 1] || path[path.length - 1];
-            const angle = Math.atan2(nextPoint.y - pos.y, nextPoint.x - pos.x);
-            
-            const pulse = Math.sin(GameState.animationTime * 0.001 * arrow.pulseSpeed + arrow.offset) * 0.3 + 0.4;
-            
-            DOM.ctx.save();
-            DOM.ctx.translate(pos.x, pos.y);
-            DOM.ctx.rotate(angle);
-            DOM.ctx.fillStyle = `rgba(255, 215, 0, ${pulse})`;
-            
-            DOM.ctx.beginPath();
-            DOM.ctx.moveTo(0, -8);
-            DOM.ctx.lineTo(15, 0);
-            DOM.ctx.lineTo(0, 8);
-            DOM.ctx.closePath();
-            DOM.ctx.fill();
-            
-            DOM.ctx.restore();
-        });
-    }
-    
-    function getPathLength(path) {
-        let length = 0;
-        for (let i = 1; i < path.length; i++) {
-            length += Math.sqrt(
-                Math.pow(path[i].x - path[i-1].x, 2) + 
-                Math.pow(path[i].y - path[i-1].y, 2)
-            );
-        }
-        return length;
-    }
-    
-    function drawBuildSpots() {
-        GameState.buildSpots.forEach(spot => {
-            if (spot.occupied) {
-                DOM.ctx.fillStyle = 'rgba(255, 46, 99, 0.3)';
-            } else if (GameState.hoveredBuildSpot === spot && GameState.selectedStationType && !GameState.isWaveActive) {
-                DOM.ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
-            } else {
-                DOM.ctx.fillStyle = 'rgba(0, 212, 255, 0.1)';
-            }
-            
-            DOM.ctx.beginPath();
-            DOM.ctx.arc(spot.x, spot.y, spot.radius, 0, Math.PI * 2);
-            DOM.ctx.fill();
-            
-            if (spot.occupied) {
-                DOM.ctx.strokeStyle = '#ff2e63';
-            } else if (GameState.hoveredBuildSpot === spot && GameState.selectedStationType && !GameState.isWaveActive) {
-                DOM.ctx.strokeStyle = '#ffd700';
-                DOM.ctx.lineWidth = 2;
-            } else {
-                DOM.ctx.strokeStyle = 'rgba(0, 212, 255, 0.5)';
-                DOM.ctx.lineWidth = 1;
-            }
-            
-            DOM.ctx.beginPath();
-            DOM.ctx.arc(spot.x, spot.y, spot.radius, 0, Math.PI * 2);
-            DOM.ctx.stroke();
-            DOM.ctx.lineWidth = 1;
-        });
-    }
-    
-    function drawStations() {
-        GameState.stations.forEach(station => {
-            DOM.ctx.save();
-            DOM.ctx.translate(station.x, station.y);
-            DOM.ctx.rotate(station.rotation);
-            
-            DOM.ctx.fillStyle = station.color;
-            DOM.ctx.beginPath();
-            DOM.ctx.arc(0, 0, 15, 0, Math.PI * 2);
-            DOM.ctx.fill();
-            
-            DOM.ctx.fillStyle = '#ffffff';
-            DOM.ctx.fillRect(10, -4, 10, 8);
-            
-            DOM.ctx.restore();
-            
-            DOM.ctx.fillStyle = station.color;
-            DOM.ctx.font = 'bold 11px Arial';
-            DOM.ctx.textAlign = 'center';
-            DOM.ctx.fillText(`Lvl ${station.level}`, station.x, station.y - 25);
-        });
-    }
-    
-    function drawStationRange(station) {
-        DOM.ctx.strokeStyle = 'rgba(255, 215, 0, 0.2)';
-        DOM.ctx.lineWidth = 1;
-        DOM.ctx.beginPath();
-        DOM.ctx.arc(station.x, station.y, station.range, 0, Math.PI * 2);
-        DOM.ctx.stroke();
-    }
-    
-    function drawEnemies() {
-        GameState.enemies.forEach(enemy => {
-            DOM.ctx.save();
-            DOM.ctx.translate(enemy.x, enemy.y);
-            DOM.ctx.rotate(enemy.rotation);
-            
-            DOM.ctx.fillStyle = enemy.color;
-            DOM.ctx.beginPath();
-            DOM.ctx.moveTo(enemy.size, 0);
-            DOM.ctx.lineTo(-enemy.size, -enemy.size / 2);
-            DOM.ctx.lineTo(-enemy.size, enemy.size / 2);
-            DOM.ctx.closePath();
-            DOM.ctx.fill();
-            
-            DOM.ctx.restore();
-            
-            const healthPercent = enemy.health / enemy.maxHealth;
-            const healthWidth = 30;
-            
-            DOM.ctx.fillStyle = '#2c3e50';
-            DOM.ctx.fillRect(enemy.x - healthWidth / 2, enemy.y - 25, healthWidth, 4);
-            
-            DOM.ctx.fillStyle = healthPercent > 0.5 ? '#00ff9d' : 
-                               healthPercent > 0.25 ? '#ffd700' : '#ff2e63';
-            DOM.ctx.fillRect(enemy.x - healthWidth / 2, enemy.y - 25, healthWidth * healthPercent, 4);
-        });
-    }
-    
-    function drawProjectiles() {
-        GameState.projectiles.forEach(projectile => {
-            DOM.ctx.fillStyle = projectile.color;
-            DOM.ctx.beginPath();
-            DOM.ctx.arc(projectile.x, projectile.y, projectile.size, 0, Math.PI * 2);
-            DOM.ctx.fill();
-        });
-    }
-    
-    function drawParticles() {
-        GameState.particles.forEach(particle => {
-            if (!particle.isStar) {
-                DOM.ctx.fillStyle = particle.color;
-                DOM.ctx.globalAlpha = particle.opacity;
-                DOM.ctx.beginPath();
-                DOM.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
-                DOM.ctx.fill();
-                DOM.ctx.globalAlpha = 1.0;
-            }
-        });
-    }
-    
-    function drawBase() {
-        const centerX = DOM.canvas.width / 2;
-        const centerY = DOM.canvas.height / 2;
-        
-        DOM.ctx.save();
-        DOM.ctx.translate(centerX, centerY);
-        
-        const pulse = Math.sin(GameState.animationTime * 0.001) * 3;
-        
-        DOM.ctx.fillStyle = '#00bfff';
-        DOM.ctx.beginPath();
-        DOM.ctx.arc(0, 0, 40 + pulse, 0, Math.PI * 2);
-        DOM.ctx.fill();
-        
-        DOM.ctx.strokeStyle = `rgba(0, 212, 255, 0.3)`;
-        DOM.ctx.lineWidth = 2;
-        DOM.ctx.setLineDash([5, 3]);
-        DOM.ctx.beginPath();
-        DOM.ctx.arc(0, 0, 60 + pulse, 0, Math.PI * 2);
-        DOM.ctx.stroke();
-        DOM.ctx.setLineDash([]);
-        
-        DOM.ctx.fillStyle = '#ffffff';
-        DOM.ctx.fillRect(-1, -60, 2, 20);
-        DOM.ctx.beginPath();
-        DOM.ctx.arc(0, -60, 5, 0, Math.PI * 2);
-        DOM.ctx.fill();
-        
-        DOM.ctx.restore();
-        
-        const shieldWidth = 100;
-        const shieldPercent = GameState.shields / GameState.base.maxShields;
-        
-        DOM.ctx.fillStyle = '#2c3e50';
-        DOM.ctx.fillRect(centerX - 50, centerY + 60, shieldWidth, 8);
-        
-        DOM.ctx.fillStyle = shieldPercent > 0.5 ? '#00ff9d' : 
-                           shieldPercent > 0.25 ? '#ffd700' : '#ff2e63';
-        DOM.ctx.fillRect(centerX - 50, centerY + 60, shieldWidth * shieldPercent, 8);
-    }
-    
-    function drawDrones() {
-        GameState.baseDrones.forEach(drone => {
-            DOM.ctx.save();
-            DOM.ctx.translate(drone.x, drone.y);
-            
-            DOM.ctx.fillStyle = '#9d4edd';
-            DOM.ctx.beginPath();
-            DOM.ctx.arc(0, 0, 8, 0, Math.PI * 2);
-            DOM.ctx.fill();
-            
-            DOM.ctx.fillStyle = '#ffffff';
-            DOM.ctx.beginPath();
-            DOM.ctx.arc(0, 0, 3, 0, Math.PI * 2);
-            DOM.ctx.fill();
-            
-            DOM.ctx.strokeStyle = '#ffffff';
-            DOM.ctx.lineWidth = 2;
-            for (let i = 0; i < 4; i++) {
-                const angle = i * Math.PI / 2 + GameState.animationTime * 0.01;
-                DOM.ctx.beginPath();
-                DOM.ctx.moveTo(0, 0);
-                DOM.ctx.lineTo(Math.cos(angle) * 12, Math.sin(angle) * 12);
-                DOM.ctx.stroke();
-            }
-            
-            DOM.ctx.restore();
-        });
-    }
-    
-    function drawPauseOverlay() {
-        DOM.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        DOM.ctx.fillRect(0, 0, DOM.canvas.width, DOM.canvas.height);
-        
-        DOM.ctx.fillStyle = '#ffffff';
-        DOM.ctx.font = 'bold 48px Arial';
-        DOM.ctx.textAlign = 'center';
-        DOM.ctx.textBaseline = 'middle';
-        DOM.ctx.fillText('ПАУЗА', DOM.canvas.width / 2, DOM.canvas.height / 2);
-    }
-    
     // ==================== МАГАЗИН ====================
     function updateShop(tab = 'weapons') {
         if (!DOM.shopItems) return;
         
         DOM.shopItems.innerHTML = '';
         
-        const shopData = {
-            weapons: [
-                {
-                    id: 'quantum',
-                    name: 'Квантовый луч',
-                    description: 'Мощный луч с проникающей способностью',
-                    crystalCost: 50,
-                    type: 'weapon'
-                }
-            ],
-            satellites: [
-                {
-                    id: 'satellite1',
-                    name: 'Базовый спутник',
-                    description: 'Автономный защитник с лазерным вооружением',
-                    crystalCost: 25,
-                    type: 'satellite'
-                }
-            ],
-            harvesters: [
-                {
-                    id: 'harvester1',
-                    name: 'Базовый харвестер',
-                    description: 'Собирает кристаллы из космоса',
-                    crystalCost: 30,
-                    type: 'harvester'
-                }
-            ],
-            cosmetics: [
-                {
-                    id: 'skin1',
-                    name: 'Золотая база',
-                    description: 'Эксклюзивный скин для базы',
-                    crystalCost: 150,
-                    type: 'cosmetic'
-                }
-            ]
-        };
-        
-        const items = shopData[tab] || [];
+        const items = CONFIG.SHOP_ITEMS[tab] || [];
         
         items.forEach(item => {
             const owned = GameState.purchasedItems[item.id] || false;
@@ -1797,7 +1838,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const buyBtn = div.querySelector('.buy-btn');
             if (buyBtn && !owned) {
                 buyBtn.addEventListener('click', () => {
-                    buyItem(item.id, item.crystalCost, item.type);
+                    buyItem(item);
                 });
             }
             
@@ -1894,30 +1935,51 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-    function buyItem(id, price, type) {
-        if (GameState.crystals < price) {
+    function buyItem(item) {
+        if (GameState.crystals < item.crystalCost) {
             showNotification('❌ Недостаточно кристаллов!', 'error');
             return;
         }
         
-        GameState.crystals -= price;
+        GameState.crystals -= item.crystalCost;
         if (DOM.crystalsAmount) DOM.crystalsAmount.textContent = GameState.crystals;
         if (DOM.crystalsCount) DOM.crystalsCount.textContent = GameState.crystals;
         
-        switch(type) {
-            case 'weapon':
-                const weaponKey = id.toUpperCase();
-                GameState.unlockedStations[weaponKey] = true;
-                updateStationsShop();
-                showNotification(`✅ ${CONFIG.STATIONS[weaponKey].name} разблокирована!`, 'success');
-                break;
-        }
-        
-        GameState.purchasedItems[id] = true;
+        GameState.purchasedItems[item.id] = true;
         savePurchasedItems();
         
+        // Применяем эффект покупки
+        applyPurchaseEffect(item);
+        
         updateShop();
-        showMessage(`💎 Куплено: ${id}`, 'success');
+        showMessage(`💎 Куплено: ${item.name}`, 'success');
+    }
+    
+    function applyPurchaseEffect(item) {
+        switch(item.effect) {
+            case 'unlock_station':
+                GameState.unlockedStations.QUANTUM = true;
+                updateStationsShop();
+                showNotification(`✅ ${item.name} разблокирована!`, 'success');
+                break;
+                
+            case 'add_satellite':
+                addSatellite(item);
+                showNotification(`🛰️ ${item.name} добавлен!`, 'success');
+                break;
+                
+            case 'add_harvester':
+                addHarvester(item);
+                showNotification(`⛏️ ${item.name} добавлен!`, 'success');
+                break;
+                
+            case 'gold_base_skin':
+            case 'nebula_effect':
+                GameState.cosmeticEffects[item.id] = true;
+                saveCosmeticEffects();
+                showNotification(`🎨 ${item.name} применён!`, 'success');
+                break;
+        }
     }
     
     function loadPurchasedItems() {
@@ -1930,10 +1992,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (CONFIG.STATIONS[weaponKey]) {
                     GameState.unlockedStations[weaponKey] = true;
                 }
+                
+                // Активируем купленные предметы
+                const item = findShopItemById(key);
+                if (item && item.effect) {
+                    setTimeout(() => applyPurchaseEffect(item), 100);
+                }
             });
         } catch (e) {
             console.error('Ошибка загрузки покупок:', e);
         }
+    }
+    
+    function loadCosmeticEffects() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('cosmic_cosmetics')) || {};
+            GameState.cosmeticEffects = saved;
+        } catch (e) {
+            console.error('Ошибка загрузки косметики:', e);
+        }
+    }
+    
+    function findShopItemById(id) {
+        for (const category in CONFIG.SHOP_ITEMS) {
+            const item = CONFIG.SHOP_ITEMS[category].find(item => item.id === id);
+            if (item) return item;
+        }
+        return null;
     }
     
     function savePurchasedItems() {
@@ -1941,6 +2026,14 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('cosmic_purchases', JSON.stringify(GameState.purchasedItems));
         } catch (e) {
             console.error('Ошибка сохранения покупок:', e);
+        }
+    }
+    
+    function saveCosmeticEffects() {
+        try {
+            localStorage.setItem('cosmic_cosmetics', JSON.stringify(GameState.cosmeticEffects));
+        } catch (e) {
+            console.error('Ошибка сохранения косметики:', e);
         }
     }
     
@@ -2134,13 +2227,15 @@ document.addEventListener('DOMContentLoaded', () => {
         GameState.stations = [];
         GameState.enemies = [];
         GameState.projectiles = [];
-        GameState.particles = GameState.particles.filter(p => p.isStar);
+        GameState.particles = [];
         GameState.baseDrones = [];
+        GameState.satellites = [];
+        GameState.harvesters = [];
         
+        createStars();
         generateBuildSpots();
         generatePaths();
         createBaseDrones();
-        createStars();
         
         clearSelection();
         closeTowerInfo();
@@ -2163,6 +2258,382 @@ document.addEventListener('DOMContentLoaded', () => {
         if (DOM.crystalsCount) DOM.crystalsCount.textContent = GameState.crystals;
         
         showMessage('🔄 Игра сброшена! Приготовьтесь к новой битве!', 'info');
+    }
+    
+    // ==================== ОТРИСОВКА ====================
+    function render() {
+        DOM.ctx.clearRect(0, 0, DOM.canvas.width, DOM.canvas.height);
+        
+        drawBackground();
+        drawPaths();
+        drawBuildSpots();
+        drawSatellites();
+        drawHarvesters();
+        drawStations();
+        drawEnemies();
+        drawProjectiles();
+        drawParticles();
+        drawBase();
+        drawDrones();
+        
+        if (GameState.selectedStation && !GameState.isWaveActive) {
+            drawStationRange(GameState.selectedStation);
+        }
+        
+        if (GameState.isPaused) drawPauseOverlay();
+    }
+    
+    function drawBackground() {
+        // Фон
+        DOM.ctx.fillStyle = '#0a0a1a';
+        DOM.ctx.fillRect(0, 0, DOM.canvas.width, DOM.canvas.height);
+        
+        const gradient = DOM.ctx.createRadialGradient(
+            DOM.canvas.width / 2, DOM.canvas.height / 2, 0,
+            DOM.canvas.width / 2, DOM.canvas.height / 2, Math.max(DOM.canvas.width, DOM.canvas.height)
+        );
+        gradient.addColorStop(0, 'rgba(10, 10, 42, 0.3)');
+        gradient.addColorStop(1, 'rgba(0, 0, 16, 0.8)');
+        DOM.ctx.fillStyle = gradient;
+        DOM.ctx.fillRect(0, 0, DOM.canvas.width, DOM.canvas.height);
+        
+        // Звезды
+        GameState.stars.forEach(star => {
+            const twinkle = Math.sin(GameState.animationTime * star.twinkleSpeed) * 0.2 + 0.8;
+            DOM.ctx.fillStyle = `rgba(255, 255, 255, ${star.brightness * twinkle})`;
+            DOM.ctx.beginPath();
+            DOM.ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+            DOM.ctx.fill();
+        });
+    }
+    
+    function drawPaths() {
+        GameState.currentPaths.forEach((path, pathIndex) => {
+            if (path.length < 2) return;
+            
+            DOM.ctx.strokeStyle = `rgba(0, 212, 255, 0.08)`;
+            DOM.ctx.lineWidth = 30;
+            DOM.ctx.lineCap = 'round';
+            DOM.ctx.lineJoin = 'round';
+            
+            DOM.ctx.beginPath();
+            DOM.ctx.moveTo(path[0].x, path[0].y);
+            for (let i = 1; i < path.length; i++) {
+                DOM.ctx.lineTo(path[i].x, path[i].y);
+            }
+            DOM.ctx.stroke();
+            
+            DOM.ctx.strokeStyle = `rgba(0, 255, 157, 0.15)`;
+            DOM.ctx.lineWidth = 2;
+            DOM.ctx.setLineDash([10, 5]);
+            DOM.ctx.stroke();
+            DOM.ctx.setLineDash([]);
+        });
+    }
+    
+    function drawBuildSpots() {
+        GameState.buildSpots.forEach(spot => {
+            if (spot.occupied) {
+                DOM.ctx.fillStyle = 'rgba(255, 46, 99, 0.3)';
+            } else if (GameState.hoveredBuildSpot === spot && GameState.selectedStationType && !GameState.isWaveActive) {
+                DOM.ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+            } else {
+                DOM.ctx.fillStyle = 'rgba(0, 212, 255, 0.1)';
+            }
+            
+            DOM.ctx.beginPath();
+            DOM.ctx.arc(spot.x, spot.y, spot.radius, 0, Math.PI * 2);
+            DOM.ctx.fill();
+            
+            if (spot.occupied) {
+                DOM.ctx.strokeStyle = '#ff2e63';
+            } else if (GameState.hoveredBuildSpot === spot && GameState.selectedStationType && !GameState.isWaveActive) {
+                DOM.ctx.strokeStyle = '#ffd700';
+                DOM.ctx.lineWidth = 2;
+            } else {
+                DOM.ctx.strokeStyle = 'rgba(0, 212, 255, 0.5)';
+                DOM.ctx.lineWidth = 1;
+            }
+            
+            DOM.ctx.beginPath();
+            DOM.ctx.arc(spot.x, spot.y, spot.radius, 0, Math.PI * 2);
+            DOM.ctx.stroke();
+            DOM.ctx.lineWidth = 1;
+        });
+    }
+    
+    function drawStations() {
+        GameState.stations.forEach(station => {
+            DOM.ctx.save();
+            DOM.ctx.translate(station.x, station.y);
+            DOM.ctx.rotate(station.rotation);
+            
+            // Основа станции
+            DOM.ctx.fillStyle = station.color;
+            DOM.ctx.beginPath();
+            DOM.ctx.arc(0, 0, 18, 0, Math.PI * 2);
+            DOM.ctx.fill();
+            
+            // Ствол
+            DOM.ctx.fillStyle = '#ffffff';
+            DOM.ctx.fillRect(12, -5, 15, 10);
+            
+            // Уровень в центре
+            DOM.ctx.save();
+            DOM.ctx.rotate(-station.rotation);
+            DOM.ctx.fillStyle = '#ffffff';
+            DOM.ctx.font = 'bold 14px Arial';
+            DOM.ctx.textAlign = 'center';
+            DOM.ctx.textBaseline = 'middle';
+            DOM.ctx.fillText(station.level, 0, 0);
+            DOM.ctx.restore();
+            
+            DOM.ctx.restore();
+        });
+    }
+    
+    function drawStationRange(station) {
+        DOM.ctx.strokeStyle = 'rgba(255, 215, 0, 0.2)';
+        DOM.ctx.lineWidth = 1;
+        DOM.ctx.beginPath();
+        DOM.ctx.arc(station.x, station.y, station.range, 0, Math.PI * 2);
+        DOM.ctx.stroke();
+    }
+    
+    function drawSatellites() {
+        GameState.satellites.forEach(satellite => {
+            DOM.ctx.save();
+            DOM.ctx.translate(satellite.x, satellite.y);
+            
+            // Основной корпус
+            DOM.ctx.fillStyle = satellite.color;
+            DOM.ctx.beginPath();
+            DOM.ctx.arc(0, 0, 12, 0, Math.PI * 2);
+            DOM.ctx.fill();
+            
+            // Панели
+            DOM.ctx.strokeStyle = '#ffffff';
+            DOM.ctx.lineWidth = 2;
+            for (let i = 0; i < 4; i++) {
+                const angle = i * Math.PI / 2 + GameState.animationTime * 0.01;
+                DOM.ctx.beginPath();
+                DOM.ctx.moveTo(0, 0);
+                DOM.ctx.lineTo(Math.cos(angle) * 20, Math.sin(angle) * 20);
+                DOM.ctx.stroke();
+            }
+            
+            // Антенна
+            DOM.ctx.fillStyle = '#ffffff';
+            DOM.ctx.beginPath();
+            DOM.ctx.arc(0, 0, 4, 0, Math.PI * 2);
+            DOM.ctx.fill();
+            
+            DOM.ctx.restore();
+            
+            // Рисуем луч, если есть цель
+            if (satellite.target) {
+                DOM.ctx.strokeStyle = satellite.color;
+                DOM.ctx.lineWidth = 2;
+                DOM.ctx.beginPath();
+                DOM.ctx.moveTo(satellite.x, satellite.y);
+                DOM.ctx.lineTo(satellite.target.x, satellite.target.y);
+                DOM.ctx.stroke();
+            }
+        });
+    }
+    
+    function drawHarvesters() {
+        GameState.harvesters.forEach(harvester => {
+            DOM.ctx.save();
+            DOM.ctx.translate(harvester.x, harvester.y);
+            
+            // Корпус
+            DOM.ctx.fillStyle = harvester.color;
+            DOM.ctx.beginPath();
+            DOM.ctx.arc(0, 0, 10, 0, Math.PI * 2);
+            DOM.ctx.fill();
+            
+            // Вращающиеся элементы
+            for (let i = 0; i < 3; i++) {
+                const angle = i * (Math.PI * 2 / 3) + GameState.animationTime * 0.02;
+                DOM.ctx.fillStyle = '#ffffff';
+                DOM.ctx.beginPath();
+                DOM.ctx.arc(
+                    Math.cos(angle) * 15,
+                    Math.sin(angle) * 15,
+                    4,
+                    0,
+                    Math.PI * 2
+                );
+                DOM.ctx.fill();
+            }
+            
+            // Центральная часть
+            DOM.ctx.fillStyle = '#ffffff';
+            DOM.ctx.beginPath();
+            DOM.ctx.arc(0, 0, 5, 0, Math.PI * 2);
+            DOM.ctx.fill();
+            
+            DOM.ctx.restore();
+        });
+    }
+    
+    function drawEnemies() {
+        GameState.enemies.forEach(enemy => {
+            DOM.ctx.save();
+            DOM.ctx.translate(enemy.x, enemy.y);
+            DOM.ctx.rotate(enemy.rotation);
+            
+            DOM.ctx.fillStyle = enemy.color;
+            DOM.ctx.beginPath();
+            DOM.ctx.moveTo(enemy.size, 0);
+            DOM.ctx.lineTo(-enemy.size, -enemy.size / 2);
+            DOM.ctx.lineTo(-enemy.size, enemy.size / 2);
+            DOM.ctx.closePath();
+            DOM.ctx.fill();
+            
+            DOM.ctx.restore();
+            
+            // Здоровье
+            const healthPercent = enemy.health / enemy.maxHealth;
+            const healthWidth = 30;
+            
+            DOM.ctx.fillStyle = '#2c3e50';
+            DOM.ctx.fillRect(enemy.x - healthWidth / 2, enemy.y - 25, healthWidth, 4);
+            
+            DOM.ctx.fillStyle = healthPercent > 0.5 ? '#00ff9d' : 
+                               healthPercent > 0.25 ? '#ffd700' : '#ff2e63';
+            DOM.ctx.fillRect(enemy.x - healthWidth / 2, enemy.y - 25, healthWidth * healthPercent, 4);
+        });
+    }
+    
+    function drawProjectiles() {
+        GameState.projectiles.forEach(projectile => {
+            DOM.ctx.fillStyle = projectile.color;
+            DOM.ctx.beginPath();
+            DOM.ctx.arc(projectile.x, projectile.y, projectile.size, 0, Math.PI * 2);
+            DOM.ctx.fill();
+        });
+    }
+    
+    function drawParticles() {
+        GameState.particles.forEach(particle => {
+            DOM.ctx.fillStyle = particle.color;
+            DOM.ctx.globalAlpha = particle.opacity;
+            DOM.ctx.beginPath();
+            DOM.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+            DOM.ctx.fill();
+            DOM.ctx.globalAlpha = 1.0;
+        });
+    }
+    
+    function drawBase() {
+        const centerX = DOM.canvas.width / 2;
+        const centerY = DOM.canvas.height / 2;
+        
+        DOM.ctx.save();
+        DOM.ctx.translate(centerX, centerY);
+        
+        const pulse = Math.sin(GameState.animationTime * 0.001) * 3;
+        
+        // Эффекты косметики
+        if (GameState.cosmeticEffects.gold_base) {
+            DOM.ctx.fillStyle = '#ffd700';
+            DOM.ctx.shadowColor = '#ffd700';
+            DOM.ctx.shadowBlur = 15;
+        } else {
+            DOM.ctx.fillStyle = '#00bfff';
+            DOM.ctx.shadowColor = '#00bfff';
+            DOM.ctx.shadowBlur = 10;
+        }
+        
+        DOM.ctx.beginPath();
+        DOM.ctx.arc(0, 0, 40 + pulse, 0, Math.PI * 2);
+        DOM.ctx.fill();
+        
+        // Эффект туманности
+        if (GameState.cosmeticEffects.nebula_effect) {
+            DOM.ctx.strokeStyle = `rgba(157, 78, 221, 0.2)`;
+            DOM.ctx.lineWidth = 4;
+            DOM.ctx.beginPath();
+            DOM.ctx.arc(0, 0, 60 + pulse * 1.5, 0, Math.PI * 2);
+            DOM.ctx.stroke();
+            
+            DOM.ctx.strokeStyle = `rgba(0, 212, 255, 0.3)`;
+            DOM.ctx.lineWidth = 2;
+            DOM.ctx.beginPath();
+            DOM.ctx.arc(0, 0, 70 + pulse, 0, Math.PI * 2);
+            DOM.ctx.stroke();
+        } else {
+            DOM.ctx.strokeStyle = `rgba(0, 212, 255, 0.3)`;
+            DOM.ctx.lineWidth = 2;
+            DOM.ctx.setLineDash([5, 3]);
+            DOM.ctx.beginPath();
+            DOM.ctx.arc(0, 0, 60 + pulse, 0, Math.PI * 2);
+            DOM.ctx.stroke();
+            DOM.ctx.setLineDash([]);
+        }
+        
+        // Антенна
+        DOM.ctx.fillStyle = '#ffffff';
+        DOM.ctx.fillRect(-1, -60, 2, 20);
+        DOM.ctx.beginPath();
+        DOM.ctx.arc(0, -60, 5, 0, Math.PI * 2);
+        DOM.ctx.fill();
+        
+        DOM.ctx.restore();
+        DOM.ctx.shadowBlur = 0;
+        
+        // Щиты
+        const shieldWidth = 100;
+        const shieldPercent = GameState.shields / GameState.base.maxShields;
+        
+        DOM.ctx.fillStyle = '#2c3e50';
+        DOM.ctx.fillRect(centerX - 50, centerY + 60, shieldWidth, 8);
+        
+        DOM.ctx.fillStyle = shieldPercent > 0.5 ? '#00ff9d' : 
+                           shieldPercent > 0.25 ? '#ffd700' : '#ff2e63';
+        DOM.ctx.fillRect(centerX - 50, centerY + 60, shieldWidth * shieldPercent, 8);
+    }
+    
+    function drawDrones() {
+        GameState.baseDrones.forEach(drone => {
+            DOM.ctx.save();
+            DOM.ctx.translate(drone.x, drone.y);
+            
+            DOM.ctx.fillStyle = '#9d4edd';
+            DOM.ctx.beginPath();
+            DOM.ctx.arc(0, 0, 8, 0, Math.PI * 2);
+            DOM.ctx.fill();
+            
+            DOM.ctx.fillStyle = '#ffffff';
+            DOM.ctx.beginPath();
+            DOM.ctx.arc(0, 0, 3, 0, Math.PI * 2);
+            DOM.ctx.fill();
+            
+            DOM.ctx.strokeStyle = '#ffffff';
+            DOM.ctx.lineWidth = 2;
+            for (let i = 0; i < 4; i++) {
+                const angle = i * Math.PI / 2 + GameState.animationTime * 0.01;
+                DOM.ctx.beginPath();
+                DOM.ctx.moveTo(0, 0);
+                DOM.ctx.lineTo(Math.cos(angle) * 12, Math.sin(angle) * 12);
+                DOM.ctx.stroke();
+            }
+            
+            DOM.ctx.restore();
+        });
+    }
+    
+    function drawPauseOverlay() {
+        DOM.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        DOM.ctx.fillRect(0, 0, DOM.canvas.width, DOM.canvas.height);
+        
+        DOM.ctx.fillStyle = '#ffffff';
+        DOM.ctx.font = 'bold 48px Arial';
+        DOM.ctx.textAlign = 'center';
+        DOM.ctx.textBaseline = 'middle';
+        DOM.ctx.fillText('ПАУЗА', DOM.canvas.width / 2, DOM.canvas.height / 2);
     }
     
     // ==================== УТИЛИТЫ ====================
